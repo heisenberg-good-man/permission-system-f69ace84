@@ -15,13 +15,18 @@ def success(data=None):
     return jsonify({'code': 0, 'message': 'success', 'data': data})
 
 
-def fail(message, code=1):
+def fail(message, code=4000):
     return jsonify({'code': code, 'message': message, 'data': None})
 
 
 @app.route('/api/stats', methods=['GET'])
 def get_stats():
     return success(db.get_stats())
+
+
+@app.route('/api/status-meta', methods=['GET'])
+def get_status_meta():
+    return success(db.get_status_meta())
 
 
 @app.route('/api/jobs', methods=['GET'])
@@ -35,7 +40,7 @@ def list_jobs():
 def get_job(job_id):
     job = db.get_job(job_id)
     if not job:
-        return fail('职位不存在')
+        return fail('职位不存在', 4040)
     return success(job)
 
 
@@ -43,7 +48,7 @@ def get_job(job_id):
 def create_job():
     data = request.get_json() or {}
     if not data.get('title'):
-        return fail('职位名称不能为空')
+        return fail('职位名称不能为空', 4001)
     job = db.create_job(data)
     return success(job)
 
@@ -53,14 +58,29 @@ def update_job(job_id):
     data = request.get_json() or {}
     job = db.update_job(job_id, data)
     if not job:
-        return fail('职位不存在')
+        return fail('职位不存在', 4040)
     return success(job)
 
 
 @app.route('/api/jobs/<int:job_id>', methods=['DELETE'])
 def delete_job(job_id):
-    db.delete_job(job_id)
+    ok = db.delete_job(job_id)
+    if not ok:
+        return fail('职位不存在', 4040)
     return success()
+
+
+@app.route('/api/jobs/<int:job_id>/applications', methods=['GET'])
+def list_job_applications(job_id):
+    job = db.get_job(job_id)
+    if not job:
+        return fail('职位不存在', 4040)
+    status = request.args.get('status')
+    apps = db.get_applications(job_id=job_id, status=status)
+    return success({
+        'job': job,
+        'applications': apps
+    })
 
 
 @app.route('/api/applications', methods=['GET'])
@@ -75,18 +95,20 @@ def list_applications():
 def get_application(app_id):
     app = db.get_application(app_id)
     if not app:
-        return fail('投递不存在')
-    return success(app)
+        return fail('投递记录不存在', 4041)
+    job = db.get_job(app['job_id'])
+    return success({
+        'application': app,
+        'job': job
+    })
 
 
 @app.route('/api/jobs/<int:job_id>/apply', methods=['POST'])
 def apply_job(job_id):
     data = request.get_json() or {}
-    if not data.get('candidate_name'):
-        return fail('姓名不能为空')
-    app = db.create_application(job_id, data)
-    if not app:
-        return fail('职位不存在')
+    app, err = db.create_application(job_id, data)
+    if err:
+        return fail(err, 4002)
     return success(app)
 
 
@@ -94,18 +116,20 @@ def apply_job(job_id):
 def update_application_status(app_id):
     data = request.get_json() or {}
     status = data.get('status')
-    if status not in ('pending', 'communicating', 'rejected', 'hired'):
-        return fail('无效状态')
-    app = db.update_application_status(app_id, status)
-    if not app:
-        return fail('投递不存在')
+    if not status:
+        return fail('状态参数不能为空', 4003)
+    app, err = db.update_application_status(app_id, status)
+    if err:
+        return fail(err, 4004)
     return success(app)
 
 
 @app.route('/api/applications/<int:app_id>/messages', methods=['GET'])
 def list_messages(app_id):
-    messages = db.get_messages(app_id)
-    return success(messages)
+    msgs, err = db.get_messages(app_id)
+    if err:
+        return fail(err, 4041)
+    return success(msgs)
 
 
 @app.route('/api/applications/<int:app_id>/messages', methods=['POST'])
@@ -114,18 +138,16 @@ def send_message(app_id):
     sender = data.get('sender')
     sender_name = data.get('sender_name', '')
     content = data.get('content', '')
-    if sender not in ('recruiter', 'candidate'):
-        return fail('无效发送方')
-    if not content.strip():
-        return fail('消息内容不能为空')
-    msg = db.create_message(app_id, sender, sender_name, content)
+    msg, err = db.create_message(app_id, sender, sender_name, content)
+    if err:
+        return fail(err, 4005)
     return success(msg)
 
 
 @app.route('/api/reset', methods=['POST'])
 def reset_data():
     db.reset()
-    return success({'message': '数据已重置'})
+    return success({'message': '数据已重置为初始状态'})
 
 
 if __name__ == '__main__':

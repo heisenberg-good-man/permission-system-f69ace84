@@ -4,6 +4,24 @@ from datetime import datetime
 def now_str():
     return datetime.now().strftime('%Y-%m-%d %H:%M:%S')
 
+VALID_STATUSES = ('pending', 'screening', 'communicating', 'rejected', 'hired')
+
+STATUS_FLOW = {
+    'pending': ('screening', 'communicating', 'rejected'),
+    'screening': ('communicating', 'rejected', 'pending'),
+    'communicating': ('rejected', 'hired', 'screening', 'pending'),
+    'rejected': ('pending', 'screening'),
+    'hired': ()
+}
+
+STATUS_TEXT = {
+    'pending': '新投递',
+    'screening': '待沟通',
+    'communicating': '沟通中',
+    'rejected': '不合适',
+    'hired': '已录用'
+}
+
 INITIAL_JOBS = [
     {
         'id': 1,
@@ -85,7 +103,7 @@ INITIAL_APPLICATIONS = [
         'candidate_email': 'zhangsan@example.com',
         'education': '本科',
         'experience': '4年',
-        'resume': '5年前端开发经验，精通 Vue 全家桶，主导过 2 个大型项目。',
+        'resume': '5年前端开发经验，精通 Vue 全家桶，主导过 2 个大型项目。\n\n工作经历：\n- 2022-至今 某互联网公司 高级前端工程师\n- 2019-2022 某科技公司 前端开发工程师\n\n技能：Vue3, TypeScript, Vite, Node.js',
         'status': 'pending',
         'applied_at': '2026-07-13 11:20:00'
     },
@@ -98,7 +116,7 @@ INITIAL_APPLICATIONS = [
         'candidate_email': 'lisi@example.com',
         'education': '硕士',
         'experience': '3年',
-        'resume': '硕士学历，3年 React 开发经验，熟悉前端性能优化。',
+        'resume': '硕士学历，3年 React 开发经验，熟悉前端性能优化。\n\n项目经验：\n- 主导某电商后台系统重构，首屏加载速度提升 60%\n- 搭建前端监控系统，支持错误追踪与性能指标采集\n\n技能：React, TypeScript, Webpack, 性能优化',
         'status': 'communicating',
         'applied_at': '2026-07-14 09:10:00'
     },
@@ -111,8 +129,8 @@ INITIAL_APPLICATIONS = [
         'candidate_email': 'wangwu@example.com',
         'education': '本科',
         'experience': '2年',
-        'resume': '2年 Python 后端经验，熟悉 Flask + MySQL，有电商项目经验。',
-        'status': 'pending',
+        'resume': '2年 Python 后端经验，熟悉 Flask + MySQL，有电商项目经验。\n\n教育背景：\n- 2019-2023 某某大学 计算机科学与技术 本科\n\n技能：Python, Flask, MySQL, Redis, Docker',
+        'status': 'screening',
         'applied_at': '2026-07-16 15:30:00'
     },
     {
@@ -170,6 +188,13 @@ class MockDB:
         self.next_application_id = max(a['id'] for a in self.applications) + 1
         self.next_message_id = max(m['id'] for m in self.messages) + 1
 
+    def get_status_meta(self):
+        return {
+            'valid_statuses': list(VALID_STATUSES),
+            'status_flow': STATUS_FLOW,
+            'status_text': STATUS_TEXT
+        }
+
     def get_jobs(self, status=None):
         if status:
             return [j for j in self.jobs if j['status'] == status]
@@ -213,6 +238,9 @@ class MockDB:
         return job
 
     def delete_job(self, job_id):
+        job = self.get_job(job_id)
+        if not job:
+            return False
         self.jobs = [j for j in self.jobs if j['id'] != job_id]
         return True
 
@@ -233,7 +261,11 @@ class MockDB:
     def create_application(self, job_id, data):
         job = self.get_job(job_id)
         if not job:
-            return None
+            return None, '职位不存在，无法投递'
+        if job['status'] != 'open':
+            return None, '该职位已关闭招聘，无法投递'
+        if not data.get('candidate_name'):
+            return None, '候选人姓名不能为空'
         app = {
             'id': self.next_application_id,
             'job_id': job_id,
@@ -249,45 +281,70 @@ class MockDB:
         }
         self.applications.insert(0, app)
         self.next_application_id += 1
-        return app
+        return app, None
 
-    def update_application_status(self, app_id, status):
+    def update_application_status(self, app_id, new_status):
         app = self.get_application(app_id)
         if not app:
-            return None
-        app['status'] = status
-        return app
+            return None, '投递记录不存在'
+        if new_status not in VALID_STATUSES:
+            return None, f'无效状态: {new_status}'
+        old_status = app['status']
+        if old_status == new_status:
+            return app, None
+        allowed = STATUS_FLOW.get(old_status, ())
+        if new_status not in allowed:
+            return None, f'无法从「{STATUS_TEXT[old_status]}」流转到「{STATUS_TEXT[new_status]}」'
+        app['status'] = new_status
+        return app, None
 
     def get_messages(self, application_id):
-        return [m for m in self.messages if m['application_id'] == application_id]
+        app = self.get_application(application_id)
+        if not app:
+            return None, '投递记录不存在，无法加载消息'
+        msgs = [m for m in self.messages if m['application_id'] == application_id]
+        return msgs, None
 
     def create_message(self, application_id, sender, sender_name, content):
+        app = self.get_application(application_id)
+        if not app:
+            return None, '投递记录不存在，无法发送消息'
+        if sender not in ('recruiter', 'candidate'):
+            return None, '无效发送方'
+        if not content or not content.strip():
+            return None, '消息内容不能为空'
         msg = {
             'id': self.next_message_id,
             'application_id': application_id,
             'sender': sender,
-            'sender_name': sender_name,
-            'content': content,
+            'sender_name': sender_name or ('招聘方' if sender == 'recruiter' else '候选人'),
+            'content': content.strip(),
             'created_at': now_str()
         }
         self.messages.append(msg)
         self.next_message_id += 1
-        return msg
+        return msg, None
 
     def get_stats(self):
         total_jobs = len(self.jobs)
         open_jobs = len([j for j in self.jobs if j['status'] == 'open'])
         total_applications = len(self.applications)
-        pending_applications = len([a for a in self.applications if a['status'] == 'pending'])
+        pending = len([a for a in self.applications if a['status'] == 'pending'])
+        screening = len([a for a in self.applications if a['status'] == 'screening'])
         communicating = len([a for a in self.applications if a['status'] == 'communicating'])
         rejected = len([a for a in self.applications if a['status'] == 'rejected'])
+        hired = len([a for a in self.applications if a['status'] == 'hired'])
         return {
             'total_jobs': total_jobs,
             'open_jobs': open_jobs,
+            'closed_jobs': total_jobs - open_jobs,
             'total_applications': total_applications,
-            'pending_applications': pending_applications,
+            'pending_applications': pending,
+            'screening': screening,
             'communicating': communicating,
-            'rejected': rejected
+            'rejected': rejected,
+            'hired': hired,
+            'status_text': STATUS_TEXT
         }
 
 

@@ -22,6 +22,10 @@
               </el-tag>
               <el-tag type="warning">{{ job.experience }}</el-tag>
               <el-tag type="info">{{ job.education }}</el-tag>
+              <span v-if="role === 'recruiter'" class="apply-count">
+                <el-icon><User /></el-icon>
+                投递 {{ applications.length }} 人
+              </span>
             </div>
           </div>
           <div class="job-salary">{{ formatSalary(job.salary_min, job.salary_max) }}</div>
@@ -65,26 +69,52 @@
             <div class="section-content" style="white-space: pre-line">{{ job.requirements }}</div>
           </div>
 
-          <div class="card" v-if="role === 'recruiter'">
-            <h3 class="section-title">
-              <el-icon><User /></el-icon>
-              该职位候选人 ({{ applications.length }})
-            </h3>
-            <el-table :data="applications" v-if="applications.length > 0" size="small">
+          <div v-if="role === 'recruiter'" class="card">
+            <div class="section-header">
+              <h3 class="section-title">
+                <el-icon><User /></el-icon>
+                候选人列表 ({{ applications.length }})
+              </h3>
+              <el-radio-group v-model="appStatusFilter" size="small" @change="filterApps">
+                <el-radio-button value="">全部</el-radio-button>
+                <el-radio-button value="pending">新投递</el-radio-button>
+                <el-radio-button value="screening">待沟通</el-radio-button>
+                <el-radio-button value="communicating">沟通中</el-radio-button>
+                <el-radio-button value="rejected">不合适</el-radio-button>
+              </el-radio-group>
+            </div>
+
+            <el-table :data="filteredApps" v-if="filteredApps.length > 0" size="default" stripe>
               <el-table-column prop="candidate_name" label="姓名" width="100" />
               <el-table-column prop="education" label="学历" width="80" />
-              <el-table-column prop="experience" label="经验" width="80" />
+              <el-table-column prop="experience" label="经验" width="90" />
               <el-table-column label="状态" width="100">
                 <template #default="{ row }">
-                  <el-tag :type="statusType(row.status)" size="small">{{ statusText(row.status) }}</el-tag>
+                  <el-tag :type="STATUS_TYPE[row.status]" size="small">{{ STATUS_TEXT[row.status] }}</el-tag>
                 </template>
               </el-table-column>
-              <el-table-column prop="applied_at" label="投递时间" />
-              <el-table-column label="操作" width="140">
+              <el-table-column prop="applied_at" label="投递时间" width="160" />
+              <el-table-column label="操作" width="200" fixed="right">
                 <template #default="{ row }">
                   <el-button type="primary" link size="small" @click="goToComm(row.id)">
-                    查看沟通
+                    沟通
                   </el-button>
+                  <el-dropdown trigger="click" @command="(v) => changeAppStatus(row, v)">
+                    <el-button link size="small">
+                      推进状态<el-icon><ArrowDown /></el-icon>
+                    </el-button>
+                    <template #dropdown>
+                      <el-dropdown-menu>
+                        <el-dropdown-item
+                          v-for="s in getNextStatuses(row.status)"
+                          :key="s.value"
+                          :command="s.value"
+                        >
+                          <el-tag :type="s.type" size="small" effect="dark">{{ s.label }}</el-tag>
+                        </el-dropdown-item>
+                      </el-dropdown-menu>
+                    </template>
+                  </el-dropdown>
                 </template>
               </el-table-column>
             </el-table>
@@ -98,7 +128,7 @@
               <el-icon><EditPen /></el-icon>
               投递简历
             </h3>
-            <el-form :model="form" label-width="80px" label-position="top">
+            <el-form :model="form" label-position="top">
               <el-form-item label="姓名">
                 <el-input v-model="form.candidate_name" placeholder="请输入姓名" />
               </el-form-item>
@@ -139,6 +169,10 @@
             </el-form>
           </div>
 
+          <div v-else-if="role === 'candidate' && job.status !== 'open'" class="card">
+            <el-empty description="该职位已关闭，无法投递" :image-size="80" />
+          </div>
+
           <div v-if="role === 'recruiter'" class="card">
             <h3 class="section-title">
               <el-icon><Setting /></el-icon>
@@ -148,8 +182,11 @@
               <el-button type="primary" style="width: 100%; margin-bottom: 8px" @click="toggleStatus">
                 {{ job.status === 'open' ? '关闭招聘' : '开启招聘' }}
               </el-button>
-              <el-button style="width: 100%" @click="$router.push('/job-manage')">
-                返回管理
+              <el-button style="width: 100%; margin-bottom: 8px" @click="goToManage">
+                返回职位管理
+              </el-button>
+              <el-button type="danger" plain style="width: 100%" @click="goToCandidates">
+                查看全部候选人
               </el-button>
             </div>
           </div>
@@ -160,9 +197,9 @@
 </template>
 
 <script setup>
-import { ref, inject, onMounted } from 'vue'
+import { ref, computed, inject, onMounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
-import { Loading } from '@element-plus/icons-vue'
+import { Loading, ArrowDown } from '@element-plus/icons-vue'
 import { ElMessage } from 'element-plus'
 import { api } from '../api'
 
@@ -170,11 +207,22 @@ const route = useRoute()
 const router = useRouter()
 const role = inject('role')
 const refreshStats = inject('refreshStats')
+const STATUS_TEXT = inject('STATUS_TEXT')
+const STATUS_TYPE = inject('STATUS_TYPE')
 
 const job = ref(null)
 const loading = ref(false)
 const submitting = ref(false)
 const applications = ref([])
+const appStatusFilter = ref('')
+
+const STATUS_FLOW = {
+  pending: ['screening', 'communicating', 'rejected'],
+  screening: ['communicating', 'rejected', 'pending'],
+  communicating: ['rejected', 'hired', 'screening', 'pending'],
+  rejected: ['pending', 'screening'],
+  hired: []
+}
 
 const form = ref({
   candidate_name: '',
@@ -183,6 +231,11 @@ const form = ref({
   education: '',
   experience: '',
   resume: ''
+})
+
+const filteredApps = computed(() => {
+  if (!appStatusFilter.value) return applications.value
+  return applications.value.filter(a => a.status === appStatusFilter.value)
 })
 
 const fetchJob = async () => {
@@ -197,19 +250,20 @@ const fetchJob = async () => {
   }
 }
 
+const filterApps = () => {}
+
 const formatSalary = (min, max) => {
   if (!min && !max) return '面议'
   return `${(min / 1000).toFixed(0)}K - ${(max / 1000).toFixed(0)}K`
 }
 
-const statusText = (s) => {
-  const map = { pending: '待处理', communicating: '沟通中', rejected: '不合适', hired: '已录用' }
-  return map[s] || s
-}
-
-const statusType = (s) => {
-  const map = { pending: 'warning', communicating: 'primary', rejected: 'danger', hired: 'success' }
-  return map[s] || 'info'
+const getNextStatuses = (current) => {
+  const next = STATUS_FLOW[current] || []
+  return next.map(s => ({
+    value: s,
+    label: STATUS_TEXT[s],
+    type: STATUS_TYPE[s]
+  }))
 }
 
 const submitApply = async () => {
@@ -230,6 +284,8 @@ const submitApply = async () => {
       resume: ''
     }
     refreshStats()
+  } catch (e) {
+    ElMessage.error(e.message || '投递失败')
   } finally {
     submitting.value = false
   }
@@ -237,17 +293,37 @@ const submitApply = async () => {
 
 const toggleStatus = async () => {
   const newStatus = job.value.status === 'open' ? 'closed' : 'open'
-  await api.updateJob(route.params.id, { status: newStatus })
-  job.value.status = newStatus
-  ElMessage.success(newStatus === 'open' ? '已开启招聘' : '已关闭招聘')
-  refreshStats()
-  if (role.value === 'recruiter') {
-    applications.value = await api.getApplications({ job_id: route.params.id })
+  try {
+    await api.updateJob(route.params.id, { status: newStatus })
+    job.value.status = newStatus
+    ElMessage.success(newStatus === 'open' ? '已开启招聘' : '已关闭招聘')
+    refreshStats()
+  } catch (e) {
+    ElMessage.error(e.message || '操作失败')
+  }
+}
+
+const changeAppStatus = async (row, newStatus) => {
+  try {
+    await api.updateApplicationStatus(row.id, newStatus)
+    row.status = newStatus
+    ElMessage.success(`状态已更新为「${STATUS_TEXT[newStatus]}」`)
+    refreshStats()
+  } catch (e) {
+    ElMessage.error(e.message || '状态更新失败')
   }
 }
 
 const goToComm = (id) => {
   router.push(`/communication/${id}`)
+}
+
+const goToManage = () => {
+  router.push('/job-manage')
+}
+
+const goToCandidates = () => {
+  router.push('/applications')
 }
 
 onMounted(() => {
@@ -300,6 +376,16 @@ onMounted(() => {
   display: flex;
   gap: 8px;
   flex-wrap: wrap;
+  align-items: center;
+}
+
+.apply-count {
+  margin-left: 8px;
+  font-size: 13px;
+  color: #6b7280;
+  display: flex;
+  align-items: center;
+  gap: 4px;
 }
 
 .job-salary {
@@ -327,14 +413,23 @@ onMounted(() => {
 
 .detail-body {
   display: grid;
-  grid-template-columns: 1fr 340px;
+  grid-template-columns: 1fr 320px;
   gap: 16px;
+}
+
+.section-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 16px;
+  flex-wrap: wrap;
+  gap: 10px;
 }
 
 .section-title {
   font-size: 16px;
   font-weight: 600;
-  margin: 0 0 16px 0;
+  margin: 0;
   color: #1f2937;
   display: flex;
   align-items: center;

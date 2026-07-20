@@ -6,12 +6,13 @@
         我的投递
       </div>
       <div class="header-actions">
-        <el-select v-model="statusFilter" placeholder="状态" clearable style="width: 140px">
-          <el-option label="待处理" value="pending" />
-          <el-option label="沟通中" value="communicating" />
-          <el-option label="不合适" value="rejected" />
-          <el-option label="已录用" value="hired" />
-        </el-select>
+        <el-radio-group v-model="statusFilter" size="default" @change="fetchData">
+          <el-radio-button value="">全部</el-radio-button>
+          <el-radio-button value="pending">新投递</el-radio-button>
+          <el-radio-button value="screening">待沟通</el-radio-button>
+          <el-radio-button value="communicating">沟通中</el-radio-button>
+          <el-radio-button value="rejected">不合适</el-radio-button>
+        </el-radio-group>
       </div>
     </div>
 
@@ -23,12 +24,14 @@
             <el-link type="primary" @click="viewJob(row.job_id)">{{ row.job_title }}</el-link>
           </template>
         </el-table-column>
-        <el-table-column label="状态" width="100">
+        <el-table-column label="状态" width="120">
           <template #default="{ row }">
-            <el-tag :type="statusType(row.status)" size="small">{{ statusText(row.status) }}</el-tag>
+            <el-tag :type="STATUS_TYPE[row.status]" size="small">
+              {{ STATUS_TEXT[row.status] }}
+            </el-tag>
           </template>
         </el-table-column>
-        <el-table-column prop="applied_at" label="投递时间" width="160" />
+        <el-table-column prop="applied_at" label="投递时间" width="180" />
         <el-table-column label="操作" width="160" fixed="right">
           <template #default="{ row }">
             <el-button type="primary" link size="small" @click="goComm(row.id)">
@@ -37,6 +40,8 @@
           </template>
         </el-table-column>
       </el-table>
+
+      <el-empty v-if="!loading && filteredApps.length === 0" description="暂无投递记录" :image-size="80" style="padding: 40px 0" />
     </div>
   </div>
 </template>
@@ -48,6 +53,8 @@ import { api } from '../api'
 
 const router = useRouter()
 const refreshStats = inject('refreshStats')
+const STATUS_TEXT = inject('STATUS_TEXT')
+const STATUS_TYPE = inject('STATUS_TYPE')
 
 const applications = ref([])
 const loading = ref(false)
@@ -57,16 +64,6 @@ const filteredApps = computed(() => {
   if (!statusFilter.value) return applications.value
   return applications.value.filter(a => a.status === statusFilter.value)
 })
-
-const statusText = (s) => {
-  const map = { pending: '待处理', communicating: '沟通中', rejected: '不合适', hired: '已录用' }
-  return map[s] || s
-}
-
-const statusType = (s) => {
-  const map = { pending: 'warning', communicating: 'primary', rejected: 'danger', hired: 'success' }
-  return map[s] || 'info'
-}
 
 const fetchData = async () => {
   loading.value = true
@@ -92,9 +89,31 @@ onMounted(() => {
 </script>
 
 <style scoped>
+.page-container {
+  padding: 20px;
+}
+
 .page-header {
   display: flex;
   justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin-bottom: 16px;
+}
+
+.page-title {
+  font-size: 20px;
+  font-weight: 600;
+  color: #1f2937;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.header-actions {
+  display: flex;
+  gap: 12px;
   align-items: center;
 }
 </style>

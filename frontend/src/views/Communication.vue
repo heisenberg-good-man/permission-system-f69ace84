@@ -7,6 +7,9 @@
             <el-icon><ChatDotRound /></el-icon>
             {{ role === 'recruiter' ? '候选人列表' : '我的沟通' }}
           </h3>
+          <el-select v-if="role === 'recruiter'" v-model="jobFilter" placeholder="筛选职位" clearable size="small" style="width: 100%; margin-top: 8px" @change="fetchAppList">
+            <el-option v-for="j in jobs" :key="j.id" :label="j.title" :value="j.id" />
+          </el-select>
         </div>
         <div class="candidate-list">
           <div
@@ -16,18 +19,20 @@
             :class="{ active: currentAppId === app.id }"
             @click="selectApp(app.id)"
           >
-            <div class="avatar">
+            <div class="avatar" :class="app.status">
               {{ (app.candidate_name || '?').charAt(0) }}
             </div>
             <div class="info">
               <div class="name-row">
                 <span class="name">{{ role === 'recruiter' ? app.candidate_name : app.job_title }}</span>
-                <el-tag :type="statusType(app.status)" size="small">{{ statusText(app.status) }}</el-tag>
+                <el-tag :type="STATUS_TYPE[app.status]" size="small" effect="light">
+                  {{ STATUS_TEXT[app.status] }}
+                </el-tag>
               </div>
               <div class="sub">
                 {{ role === 'recruiter' ? app.job_title : 'HR 沟通' }}
               </div>
-              <div class="time">{{ app.applied_at }}</div>
+              <div class="time">{{ formatTime(app.applied_at) }}</div>
             </div>
           </div>
           <el-empty v-if="appList.length === 0" description="暂无记录" :image-size="60" />
@@ -36,28 +41,35 @@
 
       <div class="chat-area card">
         <div v-if="currentApp" class="chat-header">
-          <div class="chat-title">
-            <span class="name">{{ role === 'recruiter' ? currentApp.candidate_name : currentApp.job_title }}</span>
-            <el-tag :type="statusType(currentApp.status)" size="small">
-              {{ statusText(currentApp.status) }}
-            </el-tag>
-          </div>
-          <div class="chat-sub">
-            {{ role === 'recruiter' ? `应聘: ${currentApp.job_title}` : `候选人: ${currentApp.candidate_name}` }}
-            <span v-if="role === 'recruiter'" class="divider">|</span>
-            <span v-if="role === 'recruiter'">{{ currentApp.candidate_phone }}</span>
+          <div>
+            <div class="chat-title">
+              <span class="name">{{ role === 'recruiter' ? currentApp.candidate_name : currentApp.job_title }}</span>
+              <el-tag :type="STATUS_TYPE[currentApp.status]">{{ STATUS_TEXT[currentApp.status] }}</el-tag>
+            </div>
+            <div class="chat-sub">
+              {{ role === 'recruiter' ? `应聘: ${currentApp.job_title}` : `候选人: ${currentApp.candidate_name}` }}
+              <span v-if="role === 'recruiter'" class="divider">|</span>
+              <span v-if="role === 'recruiter'">{{ currentApp.candidate_phone }}</span>
+            </div>
           </div>
           <div v-if="role === 'recruiter'" class="status-actions">
             <el-dropdown trigger="click" @command="changeStatus">
-              <el-button size="small">
-                标记状态<el-icon><ArrowDown /></el-icon>
+              <el-button type="primary">
+                推进状态
+                <el-icon><ArrowDown /></el-icon>
               </el-button>
               <template #dropdown>
                 <el-dropdown-menu>
-                  <el-dropdown-item command="pending">待处理</el-dropdown-item>
-                  <el-dropdown-item command="communicating">沟通中</el-dropdown-item>
-                  <el-dropdown-item command="rejected">不合适</el-dropdown-item>
-                  <el-dropdown-item command="hired">已录用</el-dropdown-item>
+                  <el-dropdown-item
+                    v-for="s in availableStatuses"
+                    :key="s.value"
+                    :command="s.value"
+                  >
+                    <el-tag :type="s.type" size="small" effect="dark">{{ s.label }}</el-tag>
+                  </el-dropdown-item>
+                  <el-dropdown-item divided disabled v-if="availableStatuses.length === 0">
+                    无可推进状态
+                  </el-dropdown-item>
                 </el-dropdown-menu>
               </template>
             </el-dropdown>
@@ -69,7 +81,15 @@
           <p>请选择一位候选人开始沟通</p>
         </div>
 
-        <div v-if="currentApp" class="messages-container" ref="msgContainer">
+        <div v-if="currentApp && loadError" class="load-error">
+          <el-result icon="error" :title="loadError" sub-title="该投递记录可能已被删除或不存在">
+            <template #extra>
+              <el-button type="primary" @click="fetchAppList">刷新列表</el-button>
+            </template>
+          </el-result>
+        </div>
+
+        <div v-else-if="currentApp" class="messages-container" ref="msgContainer">
           <div v-for="msg in messages" :key="msg.id" class="message-row" :class="msg.sender">
             <div class="msg-avatar">{{ (msg.sender_name || '?').charAt(0) }}</div>
             <div class="msg-bubble-wrap">
@@ -82,12 +102,12 @@
           </div>
         </div>
 
-        <div v-if="currentApp" class="input-area">
+        <div v-if="currentApp && !loadError" class="input-area">
           <el-input
             v-model="inputMsg"
             type="textarea"
             :rows="3"
-            :placeholder="`输入消息，按 Enter 发送，Shift+Enter 换行`"
+            placeholder="输入消息，按 Enter 发送，Shift+Enter 换行"
             @keydown.enter.exact.prevent="sendMsg"
           />
           <div class="send-row">
@@ -103,7 +123,7 @@
 </template>
 
 <script setup>
-import { ref, inject, onMounted, nextTick, watch } from 'vue'
+import { ref, computed, inject, onMounted, nextTick } from 'vue'
 import { useRoute } from 'vue-router'
 import { ArrowDown, Promotion } from '@element-plus/icons-vue'
 import { ElMessage } from 'element-plus'
@@ -112,7 +132,18 @@ import { api } from '../api'
 const route = useRoute()
 const role = inject('role')
 const refreshStats = inject('refreshStats')
+const STATUS_TEXT = inject('STATUS_TEXT')
+const STATUS_TYPE = inject('STATUS_TYPE')
 
+const STATUS_FLOW = {
+  pending: ['screening', 'communicating', 'rejected'],
+  screening: ['communicating', 'rejected', 'pending'],
+  communicating: ['rejected', 'hired', 'screening', 'pending'],
+  rejected: ['pending', 'screening'],
+  hired: []
+}
+
+const jobs = ref([])
 const appList = ref([])
 const currentAppId = ref(null)
 const currentApp = ref(null)
@@ -120,28 +151,47 @@ const messages = ref([])
 const inputMsg = ref('')
 const sending = ref(false)
 const msgContainer = ref(null)
+const jobFilter = ref('')
+const loadError = ref('')
 
-const statusText = (s) => {
-  const map = { pending: '待处理', communicating: '沟通中', rejected: '不合适', hired: '已录用' }
-  return map[s] || s
-}
+const availableStatuses = computed(() => {
+  if (!currentApp.value) return []
+  const current = currentApp.value.status
+  const next = STATUS_FLOW[current] || []
+  return next.map(s => ({
+    value: s,
+    label: STATUS_TEXT[s],
+    type: STATUS_TYPE[s]
+  }))
+})
 
-const statusType = (s) => {
-  const map = { pending: 'warning', communicating: 'primary', rejected: 'danger', hired: 'success' }
-  return map[s] || 'info'
+const formatTime = (t) => {
+  if (!t) return ''
+  return t.substring(5, 16)
 }
 
 const fetchAppList = async () => {
-  appList.value = await api.getApplications()
-  if (!currentAppId.value && appList.value.length > 0) {
-    selectApp(appList.value[0].id)
-  }
+  try {
+    const [jobsData, appsData] = await Promise.all([
+      api.getJobs(),
+      api.getApplications({ job_id: jobFilter.value || undefined })
+    ])
+    jobs.value = jobsData
+    appList.value = appsData
+  } catch (e) {}
 }
 
 const selectApp = async (id) => {
   currentAppId.value = id
-  currentApp.value = appList.value.find(a => a.id === id) || null
-  messages.value = await api.getMessages(id)
+  loadError.value = ''
+  const app = appList.value.find(a => a.id === id)
+  currentApp.value = app || null
+  try {
+    messages.value = await api.getMessages(id)
+  } catch (e) {
+    loadError.value = e.message || '加载消息失败'
+    messages.value = []
+  }
   nextTick(scrollToBottom)
 }
 
@@ -166,13 +216,17 @@ const sendMsg = async () => {
     messages.value.push(msg)
     inputMsg.value = ''
     if (role.value === 'recruiter' && currentApp.value?.status === 'pending') {
-      await api.updateApplicationStatus(currentAppId.value, 'communicating')
-      currentApp.value.status = 'communicating'
-      const app = appList.value.find(a => a.id === currentAppId.value)
-      if (app) app.status = 'communicating'
-      refreshStats()
+      try {
+        await api.updateApplicationStatus(currentAppId.value, 'screening')
+        currentApp.value.status = 'screening'
+        const app = appList.value.find(a => a.id === currentAppId.value)
+        if (app) app.status = 'screening'
+        refreshStats()
+      } catch (e) {}
     }
     nextTick(scrollToBottom)
+  } catch (e) {
+    ElMessage.error(e.message || '发送失败')
   } finally {
     sending.value = false
   }
@@ -180,18 +234,32 @@ const sendMsg = async () => {
 
 const changeStatus = async (status) => {
   if (!currentAppId.value) return
-  await api.updateApplicationStatus(currentAppId.value, status)
-  if (currentApp.value) currentApp.value.status = status
-  const app = appList.value.find(a => a.id === currentAppId.value)
-  if (app) app.status = status
-  ElMessage.success('状态已更新')
-  refreshStats()
+  try {
+    await api.updateApplicationStatus(currentAppId.value, status)
+    if (currentApp.value) currentApp.value.status = status
+    const app = appList.value.find(a => a.id === currentAppId.value)
+    if (app) app.status = status
+    ElMessage.success(`状态已更新为「${STATUS_TEXT[status]}」`)
+    refreshStats()
+  } catch (e) {
+    ElMessage.error(e.message || '状态更新失败')
+  }
 }
 
 onMounted(async () => {
   await fetchAppList()
   if (route.params.id) {
-    selectApp(Number(route.params.id))
+    const id = Number(route.params.id)
+    if (appList.value.some(a => a.id === id)) {
+      selectApp(id)
+    } else {
+      ElMessage.warning('指定的投递记录不存在，已显示第一条')
+      if (appList.value.length > 0) {
+        selectApp(appList.value[0].id)
+      }
+    }
+  } else if (appList.value.length > 0) {
+    selectApp(appList.value[0].id)
   }
 })
 </script>
@@ -199,6 +267,7 @@ onMounted(async () => {
 <style scoped>
 .communication-page {
   height: calc(100vh - 180px);
+  padding: 20px;
 }
 
 .comm-layout {
@@ -256,7 +325,6 @@ onMounted(async () => {
   width: 40px;
   height: 40px;
   border-radius: 50%;
-  background: linear-gradient(135deg, #3b82f6, #8b5cf6);
   color: #fff;
   display: flex;
   align-items: center;
@@ -264,6 +332,23 @@ onMounted(async () => {
   font-weight: 600;
   margin-right: 12px;
   flex-shrink: 0;
+  background: linear-gradient(135deg, #3b82f6, #8b5cf6);
+}
+
+.avatar.pending {
+  background: linear-gradient(135deg, #f59e0b, #fbbf24);
+}
+
+.avatar.screening {
+  background: linear-gradient(135deg, #6366f1, #8b5cf6);
+}
+
+.avatar.communicating {
+  background: linear-gradient(135deg, #10b981, #34d399);
+}
+
+.avatar.rejected {
+  background: linear-gradient(135deg, #6b7280, #9ca3af);
 }
 
 .info {
@@ -348,6 +433,13 @@ onMounted(async () => {
 
 .empty-chat p {
   margin: 0;
+}
+
+.load-error {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
 
 .messages-container {

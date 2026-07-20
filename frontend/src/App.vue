@@ -66,7 +66,7 @@
     </div>
 
     <el-main class="app-main">
-      <router-view :key="$route.fullPath + role" />
+      <router-view :key="$route.fullPath + '-' + role + '-' + dataVersion" />
     </el-main>
   </el-container>
 </template>
@@ -75,12 +75,14 @@
 import { ref, computed, onMounted, provide, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
-import { api } from './api'
+import { api, STATUS_TEXT, STATUS_TYPE } from './api'
 
 const route = useRoute()
 const router = useRouter()
 const role = ref(localStorage.getItem('role') || 'candidate')
 const stats = ref({})
+const dataVersion = ref(0)
+let initialized = false
 
 const activeMenu = computed(() => route.path)
 
@@ -90,15 +92,17 @@ const statItems = computed(() => {
       { label: '职位总数', value: stats.value.total_jobs || 0, icon: 'Briefcase', color: '#409eff' },
       { label: '招聘中', value: stats.value.open_jobs || 0, icon: 'CircleCheck', color: '#67c23a' },
       { label: '总投递', value: stats.value.total_applications || 0, icon: 'Document', color: '#e6a23c' },
-      { label: '待处理', value: stats.value.pending_applications || 0, icon: 'Clock', color: '#f56c6c' },
-      { label: '沟通中', value: stats.value.communicating || 0, icon: 'ChatDotRound', color: '#909399' }
+      { label: '新投递', value: stats.value.pending_applications || 0, icon: 'Bell', color: '#f56c6c' },
+      { label: '待沟通', value: stats.value.screening || 0, icon: 'Clock', color: '#909399' },
+      { label: '沟通中', value: stats.value.communicating || 0, icon: 'ChatDotRound', color: '#67c23a' }
     ]
   } else {
     return [
       { label: '在招职位', value: stats.value.open_jobs || 0, icon: 'Briefcase', color: '#409eff' },
-      { label: '已投递', value: stats.value.total_applications || 0, icon: 'Document', color: '#67c23a' },
-      { label: '沟通中', value: stats.value.communicating || 0, icon: 'ChatDotRound', color: '#e6a23c' },
-      { label: '已婉拒', value: stats.value.rejected || 0, icon: 'Close', color: '#f56c6c' }
+      { label: '总投递', value: stats.value.total_applications || 0, icon: 'Document', color: '#67c23a' },
+      { label: '待沟通', value: stats.value.screening || 0, icon: 'Clock', color: '#e6a23c' },
+      { label: '沟通中', value: stats.value.communicating || 0, icon: 'ChatDotRound', color: '#909399' },
+      { label: '不合适', value: stats.value.rejected || 0, icon: 'Close', color: '#f56c6c' }
     ]
   }
 })
@@ -107,6 +111,11 @@ const fetchStats = async () => {
   try {
     stats.value = await api.getStats()
   } catch (e) {}
+}
+
+const refreshAll = async () => {
+  dataVersion.value++
+  await fetchStats()
 }
 
 const onRoleChange = () => {
@@ -125,19 +134,32 @@ const handleReset = async () => {
       type: 'warning'
     })
     await api.resetData()
-    ElMessage.success('数据已重置')
+    ElMessage.success('数据已重置为初始状态')
+    dataVersion.value++
     fetchStats()
-    router.replace(route.path)
   } catch (e) {
     if (e !== 'cancel') console.error(e)
   }
 }
 
+const initData = async () => {
+  if (initialized) return
+  initialized = true
+  try {
+    await api.resetData()
+  } catch (e) {}
+  dataVersion.value++
+  fetchStats()
+}
+
 provide('refreshStats', fetchStats)
+provide('refreshAll', refreshAll)
 provide('role', role)
+provide('STATUS_TEXT', STATUS_TEXT)
+provide('STATUS_TYPE', STATUS_TYPE)
 
 onMounted(() => {
-  fetchStats()
+  initData()
 })
 
 watch(() => route.path, () => {
@@ -209,18 +231,18 @@ watch(() => route.path, () => {
   background: #f9fafb;
   border-radius: 8px;
   padding: 12px 20px;
-  min-width: 160px;
+  min-width: 140px;
 }
 
 .stat-icon {
-  width: 48px;
-  height: 48px;
+  width: 44px;
+  height: 44px;
   border-radius: 8px;
   display: flex;
   align-items: center;
   justify-content: center;
   color: #fff;
-  margin-right: 16px;
+  margin-right: 12px;
 }
 
 .stat-info {
@@ -229,14 +251,14 @@ watch(() => route.path, () => {
 }
 
 .stat-value {
-  font-size: 24px;
+  font-size: 22px;
   font-weight: 700;
   color: #1f2937;
   line-height: 1.2;
 }
 
 .stat-label {
-  font-size: 13px;
+  font-size: 12px;
   color: #6b7280;
   margin-top: 4px;
 }

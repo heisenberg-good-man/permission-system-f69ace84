@@ -21,14 +21,32 @@ request.interceptors.response.use(
   }
 )
 
+export const STATUS_TEXT = {
+  pending: '新投递',
+  screening: '待沟通',
+  communicating: '沟通中',
+  rejected: '不合适',
+  hired: '已录用'
+}
+
+export const STATUS_TYPE = {
+  pending: 'warning',
+  screening: 'primary',
+  communicating: 'success',
+  rejected: 'danger',
+  hired: 'info'
+}
+
 export const api = {
   getStats: () => request.get('/stats'),
+  getStatusMeta: () => request.get('/status-meta'),
 
   getJobs: (status) => request.get('/jobs', { params: { status } }),
   getJob: (id) => request.get(`/jobs/${id}`),
   createJob: (data) => request.post('/jobs', data),
   updateJob: (id, data) => request.put(`/jobs/${id}`, data),
   deleteJob: (id) => request.delete(`/jobs/${id}`),
+  getJobApplications: (jobId, status) => request.get(`/jobs/${jobId}/applications`, { params: { status } }),
 
   getApplications: (params) => request.get('/applications', { params }),
   getApplication: (id) => request.get(`/applications/${id}`),
