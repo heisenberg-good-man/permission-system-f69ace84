@@ -27,6 +27,10 @@
             <el-icon><Calendar /></el-icon>
             <span>我的面试</span>
           </el-menu-item>
+          <el-menu-item v-if="role === 'candidate'" index="/my-offers">
+            <el-icon><Present /></el-icon>
+            <span>我的 Offer</span>
+          </el-menu-item>
           <el-menu-item v-if="role === 'recruiter'" index="/job-manage">
             <el-icon><Edit /></el-icon>
             <span>职位管理</span>
@@ -38,6 +42,10 @@
           <el-menu-item v-if="role === 'recruiter'" index="/interviews">
             <el-icon><Calendar /></el-icon>
             <span>面试安排</span>
+          </el-menu-item>
+          <el-menu-item v-if="role === 'recruiter'" index="/offers">
+            <el-icon><Present /></el-icon>
+            <span>Offer 管理</span>
           </el-menu-item>
         </el-menu>
       </div>
@@ -108,7 +116,9 @@ const statItems = computed(() => {
       { label: '新投递', value: stats.value.pending_applications || 0, icon: 'Bell', color: '#f56c6c' },
       { label: '待沟通', value: stats.value.screening || 0, icon: 'Clock', color: '#909399' },
       { label: '沟通中', value: stats.value.communicating || 0, icon: 'ChatDotRound', color: '#67c23a' },
-      { label: '待面试', value: stats.value.scheduled_interviews || 0, icon: 'Calendar', color: '#e6a23c' }
+      { label: '待面试', value: stats.value.scheduled_interviews || 0, icon: 'Calendar', color: '#e6a23c' },
+      { label: '待发Offer', value: stats.value.sent_offers || 0, icon: 'Present', color: '#9b59b6' },
+      { label: '已录用', value: stats.value.hired || 0, icon: 'CircleCheckFilled', color: '#67c23a' }
     ]
   } else {
     return [
@@ -117,6 +127,7 @@ const statItems = computed(() => {
       { label: '待沟通', value: stats.value.screening || 0, icon: 'Clock', color: '#e6a23c' },
       { label: '沟通中', value: stats.value.communicating || 0, icon: 'ChatDotRound', color: '#909399' },
       { label: '待面试', value: stats.value.scheduled_interviews || 0, icon: 'Calendar', color: '#e6a23c' },
+      { label: '待处理Offer', value: stats.value.sent_offers || 0, icon: 'Present', color: '#9b59b6' },
       { label: '不合适', value: stats.value.rejected || 0, icon: 'Close', color: '#f56c6c' }
     ]
   }

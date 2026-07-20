@@ -215,6 +215,101 @@ def get_interview_meta():
     return success(db.get_interview_meta())
 
 
+@app.route('/api/interviews/<int:interview_id>/feedback', methods=['POST'])
+def submit_interview_feedback(interview_id):
+    data = request.get_json() or {}
+    interview, err = db.submit_interview_feedback(interview_id, data)
+    if err:
+        return fail(err, 4009)
+    return success(interview)
+
+
+@app.route('/api/offers', methods=['GET'])
+def list_offers():
+    job_id = request.args.get('job_id', type=int)
+    status = request.args.get('status')
+    application_id = request.args.get('application_id', type=int)
+    offers = db.get_offers(
+        application_id=application_id,
+        job_id=job_id,
+        status=status
+    )
+    return success(offers)
+
+
+@app.route('/api/offers/<int:offer_id>', methods=['GET'])
+def get_offer(offer_id):
+    offer = db.get_offer(offer_id)
+    if not offer:
+        return fail('Offer 不存在', 4043)
+    app = db.get_application(offer['application_id'])
+    job = db.get_job(offer['job_id'])
+    return success({
+        'offer': offer,
+        'application': app,
+        'job': job
+    })
+
+
+@app.route('/api/applications/<int:app_id>/offers', methods=['POST'])
+def create_offer(app_id):
+    data = request.get_json() or {}
+    offer, err = db.create_offer(app_id, data)
+    if err:
+        return fail(err, 4010)
+    return success(offer)
+
+
+@app.route('/api/offers/<int:offer_id>', methods=['PUT'])
+def update_offer(offer_id):
+    data = request.get_json() or {}
+    offer, err = db.update_offer(offer_id, data)
+    if err:
+        return fail(err, 4011)
+    return success(offer)
+
+
+@app.route('/api/offers/<int:offer_id>/send', methods=['POST'])
+def send_offer(offer_id):
+    offer, err = db.send_offer(offer_id)
+    if err:
+        return fail(err, 4012)
+    return success(offer)
+
+
+@app.route('/api/offers/<int:offer_id>/accept', methods=['POST'])
+def accept_offer(offer_id):
+    offer, err = db.accept_offer(offer_id)
+    if err:
+        return fail(err, 4013)
+    return success(offer)
+
+
+@app.route('/api/offers/<int:offer_id>/reject', methods=['POST'])
+def reject_offer(offer_id):
+    data = request.get_json() or {}
+    reason = data.get('reason', '')
+    offer, err = db.reject_offer(offer_id, reason)
+    if err:
+        return fail(err, 4014)
+    return success(offer)
+
+
+@app.route('/api/offers/<int:offer_id>/withdraw', methods=['POST'])
+def withdraw_offer(offer_id):
+    data = request.get_json() or {}
+    reason = data.get('reason', '')
+    offer, err = db.withdraw_offer(offer_id, reason)
+    if err:
+        return fail(err, 4015)
+    return success(offer)
+
+
+@app.route('/api/offer-meta', methods=['GET'])
+def get_offer_meta():
+    return success(db.get_offer_meta())
+
+
 @app.route('/api/reset', methods=['POST'])
 def reset_data():
     db.reset()

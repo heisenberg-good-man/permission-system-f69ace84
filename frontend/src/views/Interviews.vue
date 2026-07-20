@@ -60,11 +60,14 @@
             </el-tag>
           </template>
         </el-table-column>
-        <el-table-column label="操作" width="200" fixed="right">
+        <el-table-column label="操作" width="240" fixed="right">
           <template #default="{ row }">
             <el-button link type="primary" @click="viewDetail(row)">详情</el-button>
             <el-button link type="primary" @click="openEditDialog(row)" v-if="row.status === 'scheduled'">
               修改时间
+            </el-button>
+            <el-button link type="success" @click="openFeedbackDialog(row)" v-if="row.status === 'scheduled' || row.status === 'completed'">
+              反馈
             </el-button>
             <el-button link type="danger" @click="handleCancel(row)" v-if="row.status === 'scheduled'">
               取消
@@ -136,6 +139,42 @@
       </template>
     </el-dialog>
 
+    <el-dialog
+      v-model="feedbackDialogVisible"
+      title="面试反馈"
+      width="500px"
+      :close-on-click-modal="false"
+    >
+      <el-form :model="feedbackForm" :rules="feedbackRules" ref="feedbackFormRef" label-width="90px">
+        <el-form-item label="候选人">
+          <span>{{ currentFeedback?.candidate_name }} - {{ currentFeedback?.round }}</span>
+        </el-form-item>
+        <el-form-item label="反馈结果" prop="result">
+          <el-radio-group v-model="feedbackForm.result">
+            <el-radio value="pass">
+              <el-tag type="success">通过</el-tag>
+            </el-radio>
+            <el-radio value="fail">
+              <el-tag type="danger">未通过</el-tag>
+            </el-radio>
+            <el-radio value="pending">
+              <el-tag type="warning">待定</el-tag>
+            </el-radio>
+          </el-radio-group>
+        </el-form-item>
+        <el-form-item label="评分" prop="rating">
+          <el-rate v-model="feedbackForm.rating" :max="5" />
+        </el-form-item>
+        <el-form-item label="评价">
+          <el-input v-model="feedbackForm.comment" type="textarea" :rows="4" placeholder="请输入面试评价" />
+        </el-form-item>
+      </el-form>
+      <template #footer>
+        <el-button @click="feedbackDialogVisible = false">取消</el-button>
+        <el-button type="primary" @click="submitFeedback">提交反馈</el-button>
+      </template>
+    </el-dialog>
+
     <el-drawer v-model="detailVisible" title="面试详情" size="480px">
       <div v-if="detailData" class="detail-content">
         <div class="detail-header">
@@ -160,9 +199,31 @@
           <el-descriptions-item label="创建时间">{{ detailData.created_at }}</el-descriptions-item>
           <el-descriptions-item label="更新时间">{{ detailData.updated_at }}</el-descriptions-item>
         </el-descriptions>
+        <div class="feedback-section" v-if="detailData.feedback_result">
+          <h4>面试反馈</h4>
+          <el-descriptions :column="1" border>
+            <el-descriptions-item label="反馈结果">
+              <el-tag :type="INTERVIEW_FEEDBACK_RESULT_TYPE[detailData.feedback_result]">
+                {{ INTERVIEW_FEEDBACK_RESULT_TEXT[detailData.feedback_result] }}
+              </el-tag>
+            </el-descriptions-item>
+            <el-descriptions-item label="评分">
+              <el-rate v-model="detailData.feedback_rating" disabled />
+            </el-descriptions-item>
+            <el-descriptions-item label="评价" v-if="detailData.feedback_comment">
+              {{ detailData.feedback_comment }}
+            </el-descriptions-item>
+            <el-descriptions-item label="反馈时间" v-if="detailData.feedback_at">
+              {{ detailData.feedback_at }}
+            </el-descriptions-item>
+          </el-descriptions>
+        </div>
         <div class="detail-actions">
           <el-button type="primary" @click="openEditDialog(detailData)" v-if="detailData.status === 'scheduled'">
             修改时间
+          </el-button>
+          <el-button type="success" @click="openFeedbackDialog(detailData)" v-if="detailData.status === 'scheduled' || detailData.status === 'completed'">
+            提交反馈
           </el-button>
           <el-button type="danger" @click="handleCancel(detailData)" v-if="detailData.status === 'scheduled'">
             取消面试
@@ -178,7 +239,7 @@ import { ref, reactive, inject, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { Plus } from '@element-plus/icons-vue'
-import { api, STATUS_TEXT, INTERVIEW_STATUS_TEXT, INTERVIEW_STATUS_TYPE, INTERVIEW_WAY_TEXT, INTERVIEW_ROUNDS } from '../api'
+import { api, STATUS_TEXT, INTERVIEW_STATUS_TEXT, INTERVIEW_STATUS_TYPE, INTERVIEW_WAY_TEXT, INTERVIEW_ROUNDS, INTERVIEW_FEEDBACK_RESULT_TEXT, INTERVIEW_FEEDBACK_RESULT_TYPE } from '../api'
 
 const router = useRouter()
 const refreshStats = inject('refreshStats')
@@ -385,6 +446,48 @@ const viewDetail = (row) => {
   detailVisible.value = true
 }
 
+const feedbackDialogVisible = ref(false)
+const currentFeedback = ref(null)
+const feedbackForm = ref({
+  result: 'pass',
+  comment: '',
+  rating: 3
+})
+const feedbackFormRef = ref(null)
+const feedbackRules = {
+  result: [{ required: true, message: '请选择反馈结果', trigger: 'change' }],
+  rating: [{ required: true, message: '请输入评分', trigger: 'blur' }]
+}
+
+const openFeedbackDialog = (row) => {
+  currentFeedback.value = row
+  feedbackForm.value = {
+    result: row.feedback_result || 'pass',
+    comment: row.feedback_comment || '',
+    rating: row.feedback_rating || 3
+  }
+  feedbackDialogVisible.value = true
+}
+
+const submitFeedback = async () => {
+  if (!feedbackFormRef.value) return
+  try {
+    await feedbackFormRef.value.validate()
+  } catch (e) {
+    return
+  }
+  try {
+    await api.submitInterviewFeedback(currentFeedback.value.id, feedbackForm.value)
+    ElMessage.success('面试反馈已提交')
+    feedbackDialogVisible.value = false
+    fetchList()
+    refreshStats()
+    if (detailVisible.value && detailData.value?.id === currentFeedback.value.id) {
+      detailData.value = { ...detailData.value, ...feedbackForm.value, status: 'completed' }
+    }
+  } catch (e) {}
+}
+
 onMounted(() => {
   fetchJobs()
   fetchApplications()
@@ -439,5 +542,15 @@ onMounted(() => {
   display: flex;
   gap: 12px;
   margin-top: 20px;
+}
+
+.feedback-section {
+  margin-top: 20px;
+}
+
+.feedback-section h4 {
+  margin: 0 0 12px 0;
+  font-size: 15px;
+  color: #303133;
 }
 </style>

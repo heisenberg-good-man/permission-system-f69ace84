@@ -59,6 +59,34 @@ export const INTERVIEW_WAY_TEXT = {
 
 export const INTERVIEW_ROUNDS = ['初筛', '一面', '二面', '三面', '终面', 'HR面']
 
+export const INTERVIEW_FEEDBACK_RESULT_TEXT = {
+  pass: '通过',
+  fail: '未通过',
+  pending: '待定'
+}
+
+export const INTERVIEW_FEEDBACK_RESULT_TYPE = {
+  pass: 'success',
+  fail: 'danger',
+  pending: 'warning'
+}
+
+export const OFFER_STATUS_TEXT = {
+  draft: '草稿',
+  sent: '已发送',
+  accepted: '候选人已接受',
+  rejected: '候选人已拒绝',
+  withdrawn: '已撤回'
+}
+
+export const OFFER_STATUS_TYPE = {
+  draft: 'info',
+  sent: 'primary',
+  accepted: 'success',
+  rejected: 'danger',
+  withdrawn: 'warning'
+}
+
 export const api = {
   getStats: () => request.get('/stats'),
   getStatusMeta: () => request.get('/status-meta'),
@@ -84,7 +112,18 @@ export const api = {
   createInterview: (appId, data) => request.post(`/applications/${appId}/interviews`, data),
   updateInterview: (id, data) => request.put(`/interviews/${id}`, data),
   cancelInterview: (id, reason) => request.post(`/interviews/${id}/cancel`, { reason }),
+  submitInterviewFeedback: (id, data) => request.post(`/interviews/${id}/feedback`, data),
   getInterviewMeta: () => request.get('/interview-meta'),
+
+  getOffers: (params) => request.get('/offers', { params }),
+  getOffer: (id) => request.get(`/offers/${id}`),
+  createOffer: (appId, data) => request.post(`/applications/${appId}/offers`, data),
+  updateOffer: (id, data) => request.put(`/offers/${id}`, data),
+  sendOffer: (id) => request.post(`/offers/${id}/send`),
+  acceptOffer: (id) => request.post(`/offers/${id}/accept`),
+  rejectOffer: (id, reason) => request.post(`/offers/${id}/reject`, { reason }),
+  withdrawOffer: (id, reason) => request.post(`/offers/${id}/withdraw`, { reason }),
+  getOfferMeta: () => request.get('/offer-meta'),
 
   resetData: () => request.post('/reset')
 }

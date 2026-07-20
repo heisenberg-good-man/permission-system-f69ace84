@@ -90,6 +90,10 @@
               <el-icon><Calendar /></el-icon>
               安排面试
             </el-button>
+            <el-button type="warning" @click="openOfferDialog()" v-if="canCreateOffer">
+              <el-icon><Present /></el-icon>
+              发 Offer
+            </el-button>
             <el-dropdown trigger="click" @command="handleStatusChange">
               <el-button>
                 推进状态
@@ -200,15 +204,87 @@
                       <span>备注：{{ iv.remark }}</span>
                     </div>
                   </div>
-                  <div class="interview-actions" v-if="iv.status === 'scheduled'">
-                    <el-button link type="primary" size="small" @click="openEditInterviewDialog(iv)">
+                  <div class="interview-actions">
+                    <el-button link type="primary" size="small" @click="openEditInterviewDialog(iv)" v-if="iv.status === 'scheduled'">
                       修改时间
                     </el-button>
-                    <el-button link type="danger" size="small" @click="cancelInterview(iv)">
+                    <el-button link type="success" size="small" @click="openFeedbackDialog(iv)" v-if="iv.status === 'scheduled' || iv.status === 'completed'">
+                      反馈
+                    </el-button>
+                    <el-button link type="danger" size="small" @click="cancelInterview(iv)" v-if="iv.status === 'scheduled'">
                       取消
                     </el-button>
                   </div>
+                  <div class="interview-feedback" v-if="iv.feedback_result">
+                    <div class="feedback-header">
+                      <span class="feedback-label">面试反馈</span>
+                      <el-tag :type="INTERVIEW_FEEDBACK_RESULT_TYPE[iv.feedback_result]" size="small">
+                        {{ INTERVIEW_FEEDBACK_RESULT_TEXT[iv.feedback_result] }}
+                      </el-tag>
+                    </div>
+                    <div class="feedback-info">
+                      <span>评分：{{ iv.feedback_rating || '-' }} 分</span>
+                      <span v-if="iv.feedback_comment">评价：{{ iv.feedback_comment }}</span>
+                    </div>
+                  </div>
                 </div>
+              </div>
+            </div>
+          </el-tab-pane>
+
+          <el-tab-pane label="Offer 记录" name="offers">
+            <div class="offer-list">
+              <div v-if="offers.length === 0" class="no-offers">
+                <el-empty description="暂无 Offer 记录" :image-size="60" />
+                <el-button type="primary" @click="openOfferDialog()" v-if="canCreateOffer">
+                  创建 Offer
+                </el-button>
+                <p v-else class="empty-tip">候选人需通过面试后才能创建 Offer</p>
+              </div>
+              <div v-else class="offer-items">
+                <div v-for="offer in offers" :key="offer.id" class="offer-item">
+                  <div class="offer-top">
+                    <span class="offer-position">{{ offer.position }}</span>
+                    <el-tag :type="OFFER_STATUS_TYPE[offer.status]" size="small">
+                      {{ OFFER_STATUS_TEXT[offer.status] }}
+                    </el-tag>
+                  </div>
+                  <div class="offer-info">
+                    <div class="info-row">
+                      <el-icon><Money /></el-icon>
+                      <span>薪资：{{ offer.salary_min }}-{{ offer.salary_max }}K</span>
+                    </div>
+                    <div class="info-row">
+                      <el-icon><Calendar /></el-icon>
+                      <span>入职日期：{{ offer.join_date }}</span>
+                    </div>
+                    <div class="info-row">
+                      <el-icon><Clock /></el-icon>
+                      <span>试用期：{{ offer.probation_months }}个月</span>
+                    </div>
+                    <div class="info-row remark" v-if="offer.remark">
+                      <span>备注：{{ offer.remark }}</span>
+                    </div>
+                  </div>
+                  <div class="offer-actions" v-if="offer.status === 'draft'">
+                    <el-button link type="primary" size="small" @click="openOfferDialog(true, offer)">
+                      编辑
+                    </el-button>
+                    <el-button link type="success" size="small" @click="sendOffer(offer)">
+                      发送
+                    </el-button>
+                  </div>
+                  <div class="offer-actions" v-else-if="offer.status === 'sent'">
+                    <el-button link type="danger" size="small" @click="withdrawOffer(offer)">
+                      撤回
+                    </el-button>
+                  </div>
+                </div>
+              </div>
+              <div class="offer-add-btn" v-if="offers.length > 0 && canCreateOffer">
+                <el-button type="primary" plain @click="openOfferDialog()">
+                  + 新建 Offer
+                </el-button>
               </div>
             </div>
           </el-tab-pane>
@@ -269,6 +345,87 @@
         <el-button type="primary" @click="submitInterview" :loading="submittingInterview">确定</el-button>
       </template>
     </el-dialog>
+
+    <el-dialog
+      v-model="feedbackDialogVisible"
+      title="面试反馈"
+      width="500px"
+      :close-on-click-modal="false"
+    >
+      <el-form :model="feedbackForm" :rules="feedbackRules" ref="feedbackFormRef" label-width="90px">
+        <el-form-item label="候选人">
+          <span>{{ currentFeedbackInterview?.candidate_name }} - {{ currentFeedbackInterview?.round }}</span>
+        </el-form-item>
+        <el-form-item label="反馈结果" prop="result">
+          <el-radio-group v-model="feedbackForm.result">
+            <el-radio value="pass">
+              <el-tag type="success">通过</el-tag>
+            </el-radio>
+            <el-radio value="fail">
+              <el-tag type="danger">未通过</el-tag>
+            </el-radio>
+            <el-radio value="pending">
+              <el-tag type="warning">待定</el-tag>
+            </el-radio>
+          </el-radio-group>
+        </el-form-item>
+        <el-form-item label="评分" prop="rating">
+          <el-rate v-model="feedbackForm.rating" :max="5" />
+        </el-form-item>
+        <el-form-item label="评价">
+          <el-input v-model="feedbackForm.comment" type="textarea" :rows="4" placeholder="请输入面试评价" />
+        </el-form-item>
+      </el-form>
+      <template #footer>
+        <el-button @click="feedbackDialogVisible = false">取消</el-button>
+        <el-button type="primary" @click="submitFeedback">提交反馈</el-button>
+      </template>
+    </el-dialog>
+
+    <el-dialog
+      v-model="offerDialogVisible"
+      :title="isEditOffer ? '编辑 Offer' : '创建 Offer'"
+      width="560px"
+      :close-on-click-modal="false"
+    >
+      <el-form :model="offerForm" :rules="offerRules" ref="offerFormRef" label-width="100px">
+        <el-form-item label="候选人">
+          <span>{{ selectedApp?.candidate_name }} - {{ selectedApp?.job_title }}</span>
+        </el-form-item>
+        <el-form-item label="岗位" prop="position">
+          <el-input v-model="offerForm.position" placeholder="请输入岗位名称" />
+        </el-form-item>
+        <el-form-item label="薪资范围" prop="salary_min">
+          <el-input-number v-model="offerForm.salary_min" :min="0" :step="1000" placeholder="最低" />
+          <span style="margin: 0 10px">-</span>
+          <el-input-number v-model="offerForm.salary_max" :min="0" :step="1000" placeholder="最高" />
+          <span style="margin-left: 8px">K</span>
+        </el-form-item>
+        <el-form-item label="入职日期" prop="join_date">
+          <el-date-picker
+            v-model="offerForm.join_date"
+            type="date"
+            placeholder="选择入职日期"
+            value-format="YYYY-MM-DD"
+            style="width: 100%"
+          />
+        </el-form-item>
+        <el-form-item label="试用期">
+          <el-input-number v-model="offerForm.probation_months" :min="0" :max="12" />
+          <span style="margin-left: 8px">个月</span>
+        </el-form-item>
+        <el-form-item label="福利待遇">
+          <el-input v-model="offerForm.benefits" type="textarea" :rows="2" placeholder="请输入福利待遇说明" />
+        </el-form-item>
+        <el-form-item label="备注">
+          <el-input v-model="offerForm.remark" type="textarea" :rows="3" placeholder="请输入备注信息" />
+        </el-form-item>
+      </el-form>
+      <template #footer>
+        <el-button @click="offerDialogVisible = false">取消</el-button>
+        <el-button type="primary" @click="submitOffer">{{ isEditOffer ? '保存' : '创建草稿' }}</el-button>
+      </template>
+    </el-dialog>
   </div>
 </template>
 
@@ -276,7 +433,7 @@
 import { ref, computed, inject, onMounted, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
-import { api, INTERVIEW_STATUS_TEXT, INTERVIEW_STATUS_TYPE, INTERVIEW_WAY_TEXT, INTERVIEW_ROUNDS } from '../api'
+import { api, INTERVIEW_STATUS_TEXT, INTERVIEW_STATUS_TYPE, INTERVIEW_WAY_TEXT, INTERVIEW_ROUNDS, INTERVIEW_FEEDBACK_RESULT_TEXT, INTERVIEW_FEEDBACK_RESULT_TYPE, OFFER_STATUS_TEXT, OFFER_STATUS_TYPE } from '../api'
 
 const router = useRouter()
 const refreshStats = inject('refreshStats')
@@ -313,6 +470,52 @@ const interviewRules = {
   interview_time: [{ required: true, message: '请选择面试时间', trigger: 'change' }],
   interviewer: [{ required: true, message: '请输入面试官', trigger: 'blur' }]
 }
+
+const feedbackDialogVisible = ref(false)
+const currentFeedbackInterview = ref(null)
+const feedbackForm = ref({
+  result: 'pass',
+  comment: '',
+  rating: 3
+})
+const feedbackFormRef = ref(null)
+const feedbackRules = {
+  result: [{ required: true, message: '请选择反馈结果', trigger: 'change' }],
+  rating: [{ required: true, message: '请输入评分', trigger: 'blur' }]
+}
+
+const offers = ref([])
+const offerDialogVisible = ref(false)
+const currentEditOffer = ref(null)
+const isEditOffer = ref(false)
+const offerFormRef = ref(null)
+const offerForm = ref({
+  position: '',
+  salary_min: null,
+  salary_max: null,
+  join_date: '',
+  probation_months: 3,
+  benefits: '',
+  remark: ''
+})
+const offerRules = {
+  position: [{ required: true, message: '请输入岗位名称', trigger: 'blur' }],
+  salary_min: [{ required: true, message: '请输入最低薪资', trigger: 'blur' }],
+  salary_max: [{ required: true, message: '请输入最高薪资', trigger: 'blur' }],
+  join_date: [{ required: true, message: '请选择入职日期', trigger: 'change' }]
+}
+
+const hasPassedInterview = computed(() => {
+  return interviews.value.some(i => 
+    i.status === 'completed' && i.feedback_result === 'pass'
+  )
+})
+
+const canCreateOffer = computed(() => {
+  if (!selectedApp.value) return false
+  if (selectedApp.value.status === 'rejected') return false
+  return hasPassedInterview.value
+})
 
 const STATUS_FLOW = {
   pending: ['screening', 'communicating', 'rejected'],
@@ -400,6 +603,11 @@ const selectCandidate = async (app) => {
     interviews.value = await api.getApplicationInterviews(app.id)
   } catch (e) {
     interviews.value = []
+  }
+  try {
+    offers.value = await api.getOffers({ application_id: app.id })
+  } catch (e) {
+    offers.value = []
   }
 }
 
@@ -498,6 +706,126 @@ const cancelInterview = async (iv) => {
   } catch (e) {
     if (e !== 'cancel') console.error(e)
   }
+}
+
+const openFeedbackDialog = (iv) => {
+  currentFeedbackInterview.value = iv
+  feedbackForm.value = {
+    result: iv.feedback_result || 'pass',
+    comment: iv.feedback_comment || '',
+    rating: iv.feedback_rating || 3
+  }
+  feedbackDialogVisible.value = true
+}
+
+const submitFeedback = async () => {
+  if (!feedbackFormRef.value) return
+  try {
+    await feedbackFormRef.value.validate()
+  } catch (e) {
+    return
+  }
+  try {
+    await api.submitInterviewFeedback(currentFeedbackInterview.value.id, feedbackForm.value)
+    ElMessage.success('面试反馈已提交')
+    feedbackDialogVisible.value = false
+    interviews.value = await api.getApplicationInterviews(selectedId.value)
+    fetchData()
+    refreshStats()
+    if (activeTab.value === 'messages') {
+      messages.value = await api.getMessages(selectedId.value)
+    }
+  } catch (e) {}
+}
+
+const openOfferDialog = (isEdit = false, offer = null) => {
+  isEditOffer.value = isEdit
+  currentEditOffer.value = offer
+  if (isEdit && offer) {
+    offerForm.value = {
+      position: offer.position,
+      salary_min: offer.salary_min,
+      salary_max: offer.salary_max,
+      join_date: offer.join_date,
+      probation_months: offer.probation_months,
+      benefits: offer.benefits,
+      remark: offer.remark
+    }
+  } else {
+    offerForm.value = {
+      position: selectedApp.value?.job_title || '',
+      salary_min: null,
+      salary_max: null,
+      join_date: '',
+      probation_months: 3,
+      benefits: '',
+      remark: ''
+    }
+  }
+  offerDialogVisible.value = true
+}
+
+const submitOffer = async () => {
+  if (!offerFormRef.value) return
+  try {
+    await offerFormRef.value.validate()
+  } catch (e) {
+    return
+  }
+  try {
+    if (isEditOffer.value) {
+      await api.updateOffer(currentEditOffer.value.id, offerForm.value)
+      ElMessage.success('Offer 已更新')
+    } else {
+      await api.createOffer(selectedId.value, offerForm.value)
+      ElMessage.success('Offer 草稿已创建')
+    }
+    offerDialogVisible.value = false
+    offers.value = await api.getOffers({ application_id: selectedId.value })
+    refreshStats()
+  } catch (e) {}
+}
+
+const sendOffer = async (offer) => {
+  try {
+    await ElMessageBox.confirm(
+      `确认将 Offer 发送给 ${offer.candidate_name}？发送后候选人将收到通知。`,
+      '发送 Offer',
+      { type: 'warning' }
+    )
+    await api.sendOffer(offer.id)
+    ElMessage.success('Offer 已发送')
+    offers.value = await api.getOffers({ application_id: selectedId.value })
+    fetchData()
+    refreshStats()
+    if (activeTab.value === 'messages') {
+      messages.value = await api.getMessages(selectedId.value)
+    }
+  } catch (e) {}
+}
+
+const withdrawOffer = async (offer) => {
+  try {
+    const { value: reason } = await ElMessageBox.prompt(
+      '请输入撤回原因',
+      '撤回 Offer',
+      {
+        confirmButtonText: '确认撤回',
+        cancelButtonText: '取消',
+        inputType: 'textarea',
+        inputPlaceholder: '请输入撤回原因（可选）',
+        inputValidator: () => true
+      }
+    )
+    await api.withdrawOffer(offer.id, reason || '')
+    ElMessage.success('Offer 已撤回')
+    offers.value = await api.getOffers({ application_id: selectedId.value })
+    fetchData()
+    refreshStats()
+    if (activeTab.value === 'messages') {
+      messages.value = await api.getMessages(selectedId.value)
+    }
+  } catch (e) {}
 }
 
 onMounted(() => {
@@ -882,6 +1210,117 @@ onMounted(() => {
   margin-top: 12px;
   padding-top: 12px;
   border-top: 1px dashed #e5e7eb;
+}
+
+.interview-feedback {
+  margin-top: 12px;
+  padding: 12px;
+  background: #f0f9ff;
+  border-radius: 6px;
+  border-left: 3px solid #409eff;
+}
+
+.feedback-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 8px;
+}
+
+.feedback-label {
+  font-size: 13px;
+  font-weight: 600;
+  color: #1f2937;
+}
+
+.feedback-info {
+  font-size: 12px;
+  color: #6b7280;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.offer-list {
+  padding: 8px 0;
+}
+
+.no-offers {
+  text-align: center;
+  padding: 40px 0;
+}
+
+.no-offers .el-button {
+  margin-top: 16px;
+}
+
+.no-offers .empty-tip {
+  margin-top: 12px;
+  color: #909399;
+  font-size: 13px;
+}
+
+.offer-items {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.offer-item {
+  background: #f9fafb;
+  border-radius: 8px;
+  padding: 16px;
+  border: 1px solid #e5e7eb;
+}
+
+.offer-top {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 12px;
+}
+
+.offer-position {
+  font-weight: 600;
+  color: #1f2937;
+  font-size: 15px;
+}
+
+.offer-info {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  color: #6b7280;
+  font-size: 13px;
+}
+
+.offer-info .info-row {
+  display: flex;
+  align-items: flex-start;
+  gap: 6px;
+}
+
+.offer-info .info-row .el-icon {
+  margin-top: 2px;
+  flex-shrink: 0;
+}
+
+.offer-info .remark {
+  color: #9ca3af;
+  font-size: 12px;
+}
+
+.offer-actions {
+  display: flex;
+  gap: 12px;
+  margin-top: 12px;
+  padding-top: 12px;
+  border-top: 1px dashed #e5e7eb;
+}
+
+.offer-add-btn {
+  margin-top: 16px;
+  text-align: center;
 }
 
 .empty-detail {

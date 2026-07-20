@@ -18,3 +18,155 @@
 AggregateError [ECONNREFUSED]: 
     at internalConnectMultiple (node:net:1134:18)
     at afterConnectMultiple (node:net:1715:7)
+
+> recruitment-frontend@1.0.0 dev
+> vite --host 127.0.0.1 --port 3000
+
+
+  [32m[1mVITE[22m v5.4.21[39m  [2mready in [0m[1m2840[22m[2m[0m ms[22m
+
+  [32m➜[39m  [1mLocal[22m:   [36mhttp://127.0.0.1:[1m3000[22m/[39m
+[2m21:31:31[22m [31m[1m[vite][22m[39m [31mhttp proxy error: /api/reset[39m
+AggregateError [ECONNREFUSED]: 
+    at internalConnectMultiple (node:net:1134:18)
+    at afterConnectMultiple (node:net:1715:7)
+[2m21:31:32[22m [31m[1m[vite][22m[39m [31mhttp proxy error: /api/stats[39m
+AggregateError [ECONNREFUSED]: 
+    at internalConnectMultiple (node:net:1134:18)
+    at afterConnectMultiple (node:net:1715:7)
+[2m21:31:32[22m [31m[1m[vite][22m[39m [31mhttp proxy error: /api/stats[39m
+AggregateError [ECONNREFUSED]: 
+    at internalConnectMultiple (node:net:1134:18)
+    at afterConnectMultiple (node:net:1715:7)
+[2m21:31:32[22m [31m[1m[vite][22m[39m [31mhttp proxy error: /api/jobs[39m
+AggregateError [ECONNREFUSED]: 
+    at internalConnectMultiple (node:net:1134:18)
+    at afterConnectMultiple (node:net:1715:7)
+[2m21:31:32[22m [31m[1m[vite][22m[39m [31mhttp proxy error: /api/applications[39m
+AggregateError [ECONNREFUSED]: 
+    at internalConnectMultiple (node:net:1134:18)
+    at afterConnectMultiple (node:net:1715:7)
+[2m21:31:32[22m [31m[1m[vite][22m[39m [31mhttp proxy error: /api/interviews[39m
+AggregateError [ECONNREFUSED]: 
+    at internalConnectMultiple (node:net:1134:18)
+    at afterConnectMultiple (node:net:1715:7)
+[2m21:42:49[22m [36m[1m[vite][22m[39m [32mhmr update [39m[2m/src/App.vue, /src/views/Interviews.vue[22m
+[2m21:42:51[22m [31m[1m[vite][22m[39m [31mhttp proxy error: /api/reset[39m
+AggregateError [ECONNREFUSED]: 
+    at internalConnectMultiple (node:net:1134:18)
+    at afterConnectMultiple (node:net:1715:7)
+[2m21:42:51[22m [31m[1m[vite][22m[39m [31mhttp proxy error: /api/stats[39m
+AggregateError [ECONNREFUSED]: 
+    at internalConnectMultiple (node:net:1134:18)
+    at afterConnectMultiple (node:net:1715:7)
+[2m21:42:52[22m [31m[1m[vite][22m[39m [31mhttp proxy error: /api/jobs[39m
+AggregateError [ECONNREFUSED]: 
+    at internalConnectMultiple (node:net:1134:18)
+    at afterConnectMultiple (node:net:1715:7)
+[2m21:42:52[22m [31m[1m[vite][22m[39m [31mhttp proxy error: /api/applications[39m
+AggregateError [ECONNREFUSED]: 
+    at internalConnectMultiple (node:net:1134:18)
+    at afterConnectMultiple (node:net:1715:7)
+[2m21:42:52[22m [31m[1m[vite][22m[39m [31mhttp proxy error: /api/interviews[39m
+AggregateError [ECONNREFUSED]: 
+    at internalConnectMultiple (node:net:1134:18)
+    at afterConnectMultiple (node:net:1715:7)
+[2m21:43:03[22m [36m[1m[vite][22m[39m [32mhmr update [39m[2m/src/App.vue, /src/views/Interviews.vue[22m
+[2m21:43:05[22m [31m[1m[vite][22m[39m [31mhttp proxy error: /api/reset[39m
+AggregateError [ECONNREFUSED]: 
+    at internalConnectMultiple (node:net:1134:18)
+    at afterConnectMultiple (node:net:1715:7)
+[2m21:43:05[22m [31m[1m[vite][22m[39m [31mhttp proxy error: /api/stats[39m
+AggregateError [ECONNREFUSED]: 
+    at internalConnectMultiple (node:net:1134:18)
+    at afterConnectMultiple (node:net:1715:7)
+[2m21:43:06[22m [31m[1m[vite][22m[39m [31mhttp proxy error: /api/jobs[39m
+AggregateError [ECONNREFUSED]: 
+    at internalConnectMultiple (node:net:1134:18)
+    at afterConnectMultiple (node:net:1715:7)
+[2m21:43:06[22m [31m[1m[vite][22m[39m [31mhttp proxy error: /api/applications[39m
+AggregateError [ECONNREFUSED]: 
+    at internalConnectMultiple (node:net:1134:18)
+    at afterConnectMultiple (node:net:1715:7)
+[2m21:43:06[22m [31m[1m[vite][22m[39m [31mhttp proxy error: /api/interviews[39m
+AggregateError [ECONNREFUSED]: 
+    at internalConnectMultiple (node:net:1134:18)
+    at afterConnectMultiple (node:net:1715:7)
+[2m21:45:22[22m [36m[1m[vite][22m[39m [32mpage reload [39m[2msrc/router/index.js[22m
+[2m21:45:25[22m [31m[1m[vite][22m[39m [31mhttp proxy error: /api/reset[39m
+AggregateError [ECONNREFUSED]: 
+    at internalConnectMultiple (node:net:1134:18)
+    at afterConnectMultiple (node:net:1715:7)
+[2m21:45:27[22m [31m[1m[vite][22m[39m [31mhttp proxy error: /api/stats[39m
+AggregateError [ECONNREFUSED]: 
+    at internalConnectMultiple (node:net:1134:18)
+    at afterConnectMultiple (node:net:1715:7)
+[2m21:45:29[22m [31m[1m[vite][22m[39m [31mhttp proxy error: /api/stats[39m
+AggregateError [ECONNREFUSED]: 
+    at internalConnectMultiple (node:net:1134:18)
+    at afterConnectMultiple (node:net:1715:7)
+[2m21:45:33[22m [31m[1m[vite][22m[39m [31mhttp proxy error: /api/jobs[39m
+AggregateError [ECONNREFUSED]: 
+    at internalConnectMultiple (node:net:1134:18)
+    at afterConnectMultiple (node:net:1715:7)
+[2m21:45:33[22m [31m[1m[vite][22m[39m [31mhttp proxy error: /api/applications[39m
+AggregateError [ECONNREFUSED]: 
+    at internalConnectMultiple (node:net:1134:18)
+    at afterConnectMultiple (node:net:1715:7)
+[2m21:45:34[22m [31m[1m[vite][22m[39m [31mhttp proxy error: /api/interviews[39m
+AggregateError [ECONNREFUSED]: 
+    at internalConnectMultiple (node:net:1134:18)
+    at afterConnectMultiple (node:net:1715:7)
+[2m21:45:39[22m [36m[1m[vite][22m[39m [32mhmr update [39m[2m/src/App.vue[22m
+[2m21:45:51[22m [36m[1m[vite][22m[39m [32mhmr update [39m[2m/src/App.vue[22m
+[2m21:46:24[22m [36m[1m[vite][22m[39m [32mhmr update [39m[2m/src/App.vue[22m
+[2m21:46:27[22m [31m[1m[vite][22m[39m [31mhttp proxy error: /api/reset[39m
+AggregateError [ECONNREFUSED]: 
+    at internalConnectMultiple (node:net:1134:18)
+    at afterConnectMultiple (node:net:1715:7)
+[2m21:46:27[22m [31m[1m[vite][22m[39m [31mhttp proxy error: /api/stats[39m
+AggregateError [ECONNREFUSED]: 
+    at internalConnectMultiple (node:net:1134:18)
+    at afterConnectMultiple (node:net:1715:7)
+[2m21:46:29[22m [31m[1m[vite][22m[39m [31mhttp proxy error: /api/jobs[39m
+AggregateError [ECONNREFUSED]: 
+    at internalConnectMultiple (node:net:1134:18)
+    at afterConnectMultiple (node:net:1715:7)
+[2m21:46:29[22m [31m[1m[vite][22m[39m [31mhttp proxy error: /api/applications[39m
+AggregateError [ECONNREFUSED]: 
+    at internalConnectMultiple (node:net:1134:18)
+    at afterConnectMultiple (node:net:1715:7)
+[2m21:46:29[22m [31m[1m[vite][22m[39m [31mhttp proxy error: /api/interviews[39m
+AggregateError [ECONNREFUSED]: 
+    at internalConnectMultiple (node:net:1134:18)
+    at afterConnectMultiple (node:net:1715:7)
+[2m21:53:21[22m [36m[1m[vite][22m[39m [32mhmr update [39m[2m/src/views/Interviews.vue[22m
+[2m21:53:44[22m [36m[1m[vite][22m[39m [32mhmr update [39m[2m/src/views/Interviews.vue[22m
+[2m21:54:10[22m [36m[1m[vite][22m[39m [32mhmr update [39m[2m/src/views/Interviews.vue[22m
+[2m21:54:24[22m [36m[1m[vite][22m[39m [32mhmr update [39m[2m/src/views/Interviews.vue[22m
+[2m21:54:27[22m [31m[1m[vite][22m[39m [31mhttp proxy error: /api/jobs[39m
+AggregateError [ECONNREFUSED]: 
+    at internalConnectMultiple (node:net:1134:18)
+    at afterConnectMultiple (node:net:1715:7)
+[2m21:54:27[22m [31m[1m[vite][22m[39m [31mhttp proxy error: /api/applications[39m
+AggregateError [ECONNREFUSED]: 
+    at internalConnectMultiple (node:net:1134:18)
+    at afterConnectMultiple (node:net:1715:7)
+[2m21:54:27[22m [31m[1m[vite][22m[39m [31mhttp proxy error: /api/interviews[39m
+AggregateError [ECONNREFUSED]: 
+    at internalConnectMultiple (node:net:1134:18)
+    at afterConnectMultiple (node:net:1715:7)
+[2m21:55:25[22m [36m[1m[vite][22m[39m [32mhmr update [39m[2m/src/views/Interviews.vue[22m
+[2m21:55:27[22m [31m[1m[vite][22m[39m [31mhttp proxy error: /api/jobs[39m
+AggregateError [ECONNREFUSED]: 
+    at internalConnectMultiple (node:net:1134:18)
+    at afterConnectMultiple (node:net:1715:7)
+[2m21:55:27[22m [31m[1m[vite][22m[39m [31mhttp proxy error: /api/applications[39m
+AggregateError [ECONNREFUSED]: 
+    at internalConnectMultiple (node:net:1134:18)
+    at afterConnectMultiple (node:net:1715:7)
+[2m21:55:27[22m [31m[1m[vite][22m[39m [31mhttp proxy error: /api/interviews[39m
+AggregateError [ECONNREFUSED]: 
+    at internalConnectMultiple (node:net:1134:18)
+    at afterConnectMultiple (node:net:1715:7)
+[2m21:56:19[22m [36m[1m[vite][22m[39m [32mhmr update [39m[2m/src/views/Interviews.vue?vue&type=style&index=0&scoped=d771a59a&lang.css[22m

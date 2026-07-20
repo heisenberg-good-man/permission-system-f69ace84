@@ -80,6 +80,25 @@
           </el-descriptions-item>
           <el-descriptions-item label="备注" v-if="detailData.remark">{{ detailData.remark }}</el-descriptions-item>
         </el-descriptions>
+        <div class="feedback-result" v-if="detailData.status === 'completed' && detailData.feedback_result">
+          <h4>面试结果</h4>
+          <el-descriptions :column="1" border>
+            <el-descriptions-item label="结论">
+              <el-tag :type="INTERVIEW_FEEDBACK_RESULT_TYPE[detailData.feedback_result]">
+                {{ INTERVIEW_FEEDBACK_RESULT_TEXT[detailData.feedback_result] }}
+              </el-tag>
+            </el-descriptions-item>
+            <el-descriptions-item label="下一步" v-if="detailData.feedback_result === 'pass'">
+              <p>恭喜您通过面试，HR 会尽快与您联系沟通 Offer 事宜。</p>
+            </el-descriptions-item>
+            <el-descriptions-item label="下一步" v-else-if="detailData.feedback_result === 'fail'">
+              <p>感谢您的参与，我们已将您的简历存入人才库，后续有合适机会会再联系。</p>
+            </el-descriptions-item>
+            <el-descriptions-item label="下一步" v-else>
+              <p>面试结果待定，请耐心等待 HR 通知。</p>
+            </el-descriptions-item>
+          </el-descriptions>
+        </div>
         <div class="detail-tip" v-if="detailData.status === 'scheduled'">
           <el-icon><InfoFilled /></el-icon>
           <span>如有调整请联系 HR，联系方式可查看投递详情中的沟通记录</span>
@@ -92,7 +111,7 @@
 <script setup>
 import { ref, reactive, onMounted } from 'vue'
 import { InfoFilled } from '@element-plus/icons-vue'
-import { api, INTERVIEW_STATUS_TEXT, INTERVIEW_STATUS_TYPE, INTERVIEW_WAY_TEXT } from '../api'
+import { api, INTERVIEW_STATUS_TEXT, INTERVIEW_STATUS_TYPE, INTERVIEW_WAY_TEXT, INTERVIEW_FEEDBACK_RESULT_TEXT, INTERVIEW_FEEDBACK_RESULT_TYPE } from '../api'
 
 const loading = ref(false)
 const interviews = ref([])
@@ -106,6 +125,8 @@ const dateRange = ref([])
 const detailVisible = ref(false)
 const detailData = ref(null)
 
+const candidateName = '李四'
+
 const fetchList = async () => {
   loading.value = true
   try {
@@ -115,7 +136,7 @@ const fetchList = async () => {
       end_date: filters.end_date || undefined
     }
     const all = await api.getInterviews(params)
-    interviews.value = all
+    interviews.value = all.filter(i => i.candidate_name === candidateName)
   } catch (e) {
   } finally {
     loading.value = false
@@ -202,5 +223,21 @@ onMounted(() => {
   align-items: flex-start;
   gap: 8px;
   line-height: 1.5;
+}
+
+.feedback-result {
+  margin-top: 20px;
+}
+
+.feedback-result h4 {
+  margin: 0 0 12px 0;
+  font-size: 15px;
+  color: #303133;
+}
+
+.feedback-result p {
+  margin: 0;
+  color: #606266;
+  line-height: 1.6;
 }
 </style>

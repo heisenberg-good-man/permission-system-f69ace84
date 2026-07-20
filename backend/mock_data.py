@@ -48,6 +48,32 @@ INTERVIEW_WAY_TEXT = {
 
 INTERVIEW_ROUNDS = ('初筛', '一面', '二面', '三面', '终面', 'HR面')
 
+INTERVIEW_FEEDBACK_RESULTS = ('pass', 'fail', 'pending')
+
+INTERVIEW_FEEDBACK_RESULT_TEXT = {
+    'pass': '通过',
+    'fail': '未通过',
+    'pending': '待定'
+}
+
+OFFER_STATUS = ('draft', 'sent', 'accepted', 'rejected', 'withdrawn')
+
+OFFER_STATUS_TEXT = {
+    'draft': '草稿',
+    'sent': '已发送',
+    'accepted': '候选人已接受',
+    'rejected': '候选人已拒绝',
+    'withdrawn': '已撤回'
+}
+
+OFFER_STATUS_TYPE = {
+    'draft': 'info',
+    'sent': 'primary',
+    'accepted': 'success',
+    'rejected': 'danger',
+    'withdrawn': 'warning'
+}
+
 INITIAL_JOBS = [
     {
         'id': 1,
@@ -216,9 +242,16 @@ INITIAL_INTERVIEWS = [
         'meeting_link': '',
         'remark': '请携带简历和作品集',
         'status': 'scheduled',
+        'feedback_result': '',
+        'feedback_comment': '',
+        'feedback_rating': 0,
+        'feedback_at': '',
         'created_at': '2026-07-15 14:00:00',
         'updated_at': '2026-07-15 14:00:00'
     }
+]
+
+INITIAL_OFFERS = [
 ]
 
 
@@ -231,10 +264,12 @@ class MockDB:
         self.applications = copy.deepcopy(INITIAL_APPLICATIONS)
         self.messages = copy.deepcopy(INITIAL_MESSAGES)
         self.interviews = copy.deepcopy(INITIAL_INTERVIEWS)
+        self.offers = copy.deepcopy(INITIAL_OFFERS)
         self.next_job_id = max(j['id'] for j in self.jobs) + 1
         self.next_application_id = max(a['id'] for a in self.applications) + 1
         self.next_message_id = max(m['id'] for m in self.messages) + 1
         self.next_interview_id = max(i['id'] for i in self.interviews) + 1
+        self.next_offer_id = max((o['id'] for o in self.offers), default=0) + 1
 
     def get_status_meta(self):
         return {
@@ -383,6 +418,8 @@ class MockDB:
         rejected = len([a for a in self.applications if a['status'] == 'rejected'])
         hired = len([a for a in self.applications if a['status'] == 'hired'])
         scheduled_interviews = len([i for i in self.interviews if i['status'] == 'scheduled'])
+        sent_offers = len([o for o in self.offers if o['status'] == 'sent'])
+        accepted_offers = len([o for o in self.offers if o['status'] == 'accepted'])
         return {
             'total_jobs': total_jobs,
             'open_jobs': open_jobs,
@@ -394,6 +431,8 @@ class MockDB:
             'rejected': rejected,
             'hired': hired,
             'scheduled_interviews': scheduled_interviews,
+            'sent_offers': sent_offers,
+            'accepted_offers': accepted_offers,
             'status_text': STATUS_TEXT
         }
 
@@ -510,6 +549,182 @@ class MockDB:
                 sys_msg += f'，原因：{reason}'
             self._add_system_message(interview['application_id'], sys_msg)
         return interview, None
+
+    def submit_interview_feedback(self, interview_id, feedback):
+        interview = self.get_interview(interview_id)
+        if not interview:
+            return None, '面试记录不存在'
+        if interview['status'] not in ('scheduled', 'completed'):
+            return None, '只有已安排或已完成的面试可以提交反馈'
+        result = feedback.get('result')
+        if result not in INTERVIEW_FEEDBACK_RESULTS:
+            return None, f'无效的反馈结果: {result}'
+        interview['feedback_result'] = result
+        interview['feedback_comment'] = feedback.get('comment', '')
+        interview['feedback_rating'] = int(feedback.get('rating', 0) or 0)
+        interview['feedback_at'] = now_str()
+        interview['status'] = 'completed'
+        interview['updated_at'] = now_str()
+        app = self.get_application(interview['application_id'])
+        if app:
+            result_text = INTERVIEW_FEEDBACK_RESULT_TEXT[result]
+            sys_msg = f'【系统消息】{interview["round"]}反馈已提交，结果：{result_text}'
+            if feedback.get('comment'):
+                sys_msg += f'，评价：{feedback["comment"]}'
+            self._add_system_message(interview['application_id'], sys_msg)
+            if result == 'fail':
+                if app['status'] != 'rejected':
+                    app['status'] = 'rejected'
+        return interview, None
+
+    def get_offers(self, application_id=None, job_id=None, status=None):
+        result = self.offers
+        if application_id:
+            result = [o for o in result if o['application_id'] == application_id]
+        if job_id:
+            result = [o for o in result if o['job_id'] == job_id]
+        if status:
+            result = [o for o in result if o['status'] == status]
+        result = sorted(result, key=lambda x: x['created_at'], reverse=True)
+        return result
+
+    def get_offer(self, offer_id):
+        for o in self.offers:
+            if o['id'] == offer_id:
+                return o
+        return None
+
+    def create_offer(self, application_id, data):
+        app = self.get_application(application_id)
+        if not app:
+            return None, '投递记录不存在，无法创建 Offer'
+        if app['status'] == 'rejected':
+            return None, '该候选人状态为「不合适」，无法创建 Offer'
+        passed_interviews = [i for i in self.interviews
+                             if i['application_id'] == application_id
+                             and i['status'] == 'completed'
+                             and i['feedback_result'] == 'pass']
+        if not passed_interviews:
+            return None, '该候选人没有通过的面试反馈，无法创建 Offer'
+        if not data.get('salary_min') or not data.get('salary_max'):
+            return None, '薪资范围不能为空'
+        if not data.get('join_date'):
+            return None, '入职日期不能为空'
+        job = self.get_job(app['job_id'])
+        offer = {
+            'id': self.next_offer_id,
+            'application_id': application_id,
+            'job_id': app['job_id'],
+            'job_title': app['job_title'],
+            'candidate_name': app['candidate_name'],
+            'position': data.get('position', job['title'] if job else app['job_title']),
+            'salary_min': data.get('salary_min', 0),
+            'salary_max': data.get('salary_max', 0),
+            'join_date': data.get('join_date', ''),
+            'probation_months': int(data.get('probation_months', 3) or 3),
+            'benefits': data.get('benefits', ''),
+            'remark': data.get('remark', ''),
+            'status': 'draft',
+            'sent_at': '',
+            'replied_at': '',
+            'reject_reason': '',
+            'withdraw_reason': '',
+            'created_at': now_str(),
+            'updated_at': now_str()
+        }
+        self.offers.insert(0, offer)
+        self.next_offer_id += 1
+        return offer, None
+
+    def update_offer(self, offer_id, data):
+        offer = self.get_offer(offer_id)
+        if not offer:
+            return None, 'Offer 不存在'
+        if offer['status'] != 'draft':
+            return None, '只有草稿状态的 Offer 可以编辑'
+        for k, v in data.items():
+            if k in offer and k not in ('id', 'application_id', 'job_id', 'job_title', 'candidate_name', 'status', 'created_at', 'sent_at', 'replied_at'):
+                offer[k] = v
+        offer['updated_at'] = now_str()
+        return offer, None
+
+    def send_offer(self, offer_id):
+        offer = self.get_offer(offer_id)
+        if not offer:
+            return None, 'Offer 不存在'
+        if offer['status'] != 'draft':
+            return None, '只有草稿状态的 Offer 可以发送'
+        offer['status'] = 'sent'
+        offer['sent_at'] = now_str()
+        offer['updated_at'] = now_str()
+        app = self.get_application(offer['application_id'])
+        if app:
+            app['status'] = 'communicating'
+            sys_msg = f'【系统消息】Offer 已发送，岗位：{offer["position"]}，薪资：{offer["salary_min"]}-{offer["salary_max"]}K，请查收并尽快回复。'
+            self._add_system_message(offer['application_id'], sys_msg)
+        return offer, None
+
+    def accept_offer(self, offer_id):
+        offer = self.get_offer(offer_id)
+        if not offer:
+            return None, 'Offer 不存在'
+        if offer['status'] != 'sent':
+            return None, '只有已发送状态的 Offer 可以接受'
+        offer['status'] = 'accepted'
+        offer['replied_at'] = now_str()
+        offer['updated_at'] = now_str()
+        app = self.get_application(offer['application_id'])
+        if app:
+            app['status'] = 'hired'
+            sys_msg = '【系统消息】候选人已接受 Offer，入职日期：' + offer['join_date']
+            self._add_system_message(offer['application_id'], sys_msg)
+        return offer, None
+
+    def reject_offer(self, offer_id, reason=''):
+        offer = self.get_offer(offer_id)
+        if not offer:
+            return None, 'Offer 不存在'
+        if offer['status'] != 'sent':
+            return None, '只有已发送状态的 Offer 可以拒绝'
+        offer['status'] = 'rejected'
+        offer['replied_at'] = now_str()
+        offer['reject_reason'] = reason
+        offer['updated_at'] = now_str()
+        app = self.get_application(offer['application_id'])
+        if app:
+            app['status'] = 'communicating'
+            sys_msg = '【系统消息】候选人已拒绝 Offer'
+            if reason:
+                sys_msg += f'，原因：{reason}'
+            self._add_system_message(offer['application_id'], sys_msg)
+        return offer, None
+
+    def withdraw_offer(self, offer_id, reason=''):
+        offer = self.get_offer(offer_id)
+        if not offer:
+            return None, 'Offer 不存在'
+        if offer['status'] not in ('draft', 'sent'):
+            return None, '只有草稿或已发送状态的 Offer 可以撤回'
+        old_status = offer['status']
+        offer['status'] = 'withdrawn'
+        offer['withdraw_reason'] = reason
+        offer['updated_at'] = now_str()
+        if old_status == 'sent':
+            app = self.get_application(offer['application_id'])
+            if app:
+                app['status'] = 'communicating'
+                sys_msg = '【系统消息】Offer 已撤回'
+                if reason:
+                    sys_msg += f'，原因：{reason}'
+                self._add_system_message(offer['application_id'], sys_msg)
+        return offer, None
+
+    def get_offer_meta(self):
+        return {
+            'status_list': list(OFFER_STATUS),
+            'status_text': OFFER_STATUS_TEXT,
+            'status_type': OFFER_STATUS_TYPE
+        }
 
     def _add_system_message(self, application_id, content):
         msg = {
