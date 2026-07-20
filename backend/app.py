@@ -144,6 +144,77 @@ def send_message(app_id):
     return success(msg)
 
 
+@app.route('/api/applications/<int:app_id>/interviews', methods=['GET'])
+def list_application_interviews(app_id):
+    app = db.get_application(app_id)
+    if not app:
+        return fail('投递记录不存在', 4041)
+    interviews = db.get_interviews(application_id=app_id)
+    return success(interviews)
+
+
+@app.route('/api/interviews', methods=['GET'])
+def list_interviews():
+    job_id = request.args.get('job_id', type=int)
+    status = request.args.get('status')
+    start_date = request.args.get('start_date')
+    end_date = request.args.get('end_date')
+    interviews = db.get_interviews(
+        job_id=job_id,
+        status=status,
+        start_date=start_date,
+        end_date=end_date
+    )
+    return success(interviews)
+
+
+@app.route('/api/interviews/<int:interview_id>', methods=['GET'])
+def get_interview(interview_id):
+    interview = db.get_interview(interview_id)
+    if not interview:
+        return fail('面试记录不存在', 4042)
+    app = db.get_application(interview['application_id'])
+    job = db.get_job(interview['job_id'])
+    return success({
+        'interview': interview,
+        'application': app,
+        'job': job
+    })
+
+
+@app.route('/api/applications/<int:app_id>/interviews', methods=['POST'])
+def create_interview(app_id):
+    data = request.get_json() or {}
+    interview, err = db.create_interview(app_id, data)
+    if err:
+        return fail(err, 4006)
+    return success(interview)
+
+
+@app.route('/api/interviews/<int:interview_id>', methods=['PUT'])
+def update_interview(interview_id):
+    data = request.get_json() or {}
+    interview, err = db.update_interview(interview_id, data)
+    if err:
+        return fail(err, 4007)
+    return success(interview)
+
+
+@app.route('/api/interviews/<int:interview_id>/cancel', methods=['POST'])
+def cancel_interview(interview_id):
+    data = request.get_json() or {}
+    reason = data.get('reason', '')
+    interview, err = db.cancel_interview(interview_id, reason)
+    if err:
+        return fail(err, 4008)
+    return success(interview)
+
+
+@app.route('/api/interview-meta', methods=['GET'])
+def get_interview_meta():
+    return success(db.get_interview_meta())
+
+
 @app.route('/api/reset', methods=['POST'])
 def reset_data():
     db.reset()

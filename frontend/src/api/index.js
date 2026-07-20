@@ -37,6 +37,28 @@ export const STATUS_TYPE = {
   hired: 'info'
 }
 
+export const INTERVIEW_STATUS_TEXT = {
+  scheduled: '已安排',
+  completed: '已完成',
+  cancelled: '已取消',
+  no_show: '未到场'
+}
+
+export const INTERVIEW_STATUS_TYPE = {
+  scheduled: 'primary',
+  completed: 'success',
+  cancelled: 'info',
+  no_show: 'danger'
+}
+
+export const INTERVIEW_WAY_TEXT = {
+  onsite: '现场面试',
+  online: '视频面试',
+  phone: '电话面试'
+}
+
+export const INTERVIEW_ROUNDS = ['初筛', '一面', '二面', '三面', '终面', 'HR面']
+
 export const api = {
   getStats: () => request.get('/stats'),
   getStatusMeta: () => request.get('/status-meta'),
@@ -55,6 +77,14 @@ export const api = {
 
   getMessages: (appId) => request.get(`/applications/${appId}/messages`),
   sendMessage: (appId, data) => request.post(`/applications/${appId}/messages`, data),
+
+  getInterviews: (params) => request.get('/interviews', { params }),
+  getInterview: (id) => request.get(`/interviews/${id}`),
+  getApplicationInterviews: (appId) => request.get(`/applications/${appId}/interviews`),
+  createInterview: (appId, data) => request.post(`/applications/${appId}/interviews`, data),
+  updateInterview: (id, data) => request.put(`/interviews/${id}`, data),
+  cancelInterview: (id, reason) => request.post(`/interviews/${id}/cancel`, { reason }),
+  getInterviewMeta: () => request.get('/interview-meta'),
 
   resetData: () => request.post('/reset')
 }

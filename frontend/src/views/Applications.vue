@@ -86,6 +86,10 @@
               <el-icon><ChatDotRound /></el-icon>
               发起沟通
             </el-button>
+            <el-button type="success" @click="openInterviewDialog" v-if="canScheduleInterview">
+              <el-icon><Calendar /></el-icon>
+              安排面试
+            </el-button>
             <el-dropdown trigger="click" @command="handleStatusChange">
               <el-button>
                 推进状态
@@ -158,6 +162,56 @@
               </div>
             </div>
           </el-tab-pane>
+
+          <el-tab-pane label="面试记录" name="interviews">
+            <div class="interview-list">
+              <div v-if="interviews.length === 0" class="no-interviews">
+                <el-empty description="暂无面试记录" :image-size="60" />
+                <el-button type="primary" @click="openInterviewDialog" v-if="canScheduleInterview">
+                  安排面试
+                </el-button>
+              </div>
+              <div v-else class="interview-items">
+                <div v-for="iv in interviews" :key="iv.id" class="interview-item">
+                  <div class="interview-top">
+                    <span class="interview-round">{{ iv.round }}</span>
+                    <el-tag :type="INTERVIEW_STATUS_TYPE[iv.status]" size="small">
+                      {{ INTERVIEW_STATUS_TEXT[iv.status] }}
+                    </el-tag>
+                  </div>
+                  <div class="interview-info">
+                    <div class="info-row">
+                      <el-icon><Calendar /></el-icon>
+                      <span>{{ INTERVIEW_WAY_TEXT[iv.way] }} · {{ iv.interview_time }}</span>
+                    </div>
+                    <div class="info-row">
+                      <el-icon><User /></el-icon>
+                      <span>面试官：{{ iv.interviewer }}</span>
+                    </div>
+                    <div class="info-row" v-if="iv.location">
+                      <el-icon><Location /></el-icon>
+                      <span>{{ iv.location }}</span>
+                    </div>
+                    <div class="info-row" v-if="iv.meeting_link">
+                      <el-icon><Link /></el-icon>
+                      <span>{{ iv.meeting_link }}</span>
+                    </div>
+                    <div class="info-row remark" v-if="iv.remark">
+                      <span>备注：{{ iv.remark }}</span>
+                    </div>
+                  </div>
+                  <div class="interview-actions" v-if="iv.status === 'scheduled'">
+                    <el-button link type="primary" size="small" @click="openEditInterviewDialog(iv)">
+                      修改时间
+                    </el-button>
+                    <el-button link type="danger" size="small" @click="cancelInterview(iv)">
+                      取消
+                    </el-button>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </el-tab-pane>
         </el-tabs>
       </div>
 
@@ -165,14 +219,64 @@
         <el-empty description="请选择一位候选人查看详情" :image-size="80" />
       </div>
     </div>
+
+    <el-dialog
+      v-model="interviewDialogVisible"
+      :title="isEditInterview ? '修改面试' : '安排面试'"
+      width="520px"
+      :close-on-click-modal="false"
+    >
+      <el-form :model="interviewForm" :rules="interviewRules" ref="interviewFormRef" label-width="90px">
+        <el-form-item label="候选人">
+          <span>{{ selectedApp?.candidate_name }} - {{ selectedApp?.job_title }}</span>
+        </el-form-item>
+        <el-form-item label="面试轮次" prop="round">
+          <el-select v-model="interviewForm.round" placeholder="请选择" style="width: 100%">
+            <el-option v-for="r in INTERVIEW_ROUNDS" :key="r" :label="r" :value="r" />
+          </el-select>
+        </el-form-item>
+        <el-form-item label="面试方式" prop="way">
+          <el-radio-group v-model="interviewForm.way">
+            <el-radio value="onsite">现场</el-radio>
+            <el-radio value="online">视频</el-radio>
+            <el-radio value="phone">电话</el-radio>
+          </el-radio-group>
+        </el-form-item>
+        <el-form-item label="面试时间" prop="interview_time">
+          <el-date-picker
+            v-model="interviewForm.interview_time"
+            type="datetime"
+            placeholder="选择面试时间"
+            value-format="YYYY-MM-DD HH:mm:ss"
+            style="width: 100%"
+          />
+        </el-form-item>
+        <el-form-item label="面试官" prop="interviewer">
+          <el-input v-model="interviewForm.interviewer" placeholder="请输入面试官姓名" />
+        </el-form-item>
+        <el-form-item label="地点" v-if="interviewForm.way === 'onsite'">
+          <el-input v-model="interviewForm.location" placeholder="请输入面试地点" />
+        </el-form-item>
+        <el-form-item label="会议链接" v-if="interviewForm.way === 'online'">
+          <el-input v-model="interviewForm.meeting_link" placeholder="请输入视频会议链接" />
+        </el-form-item>
+        <el-form-item label="备注">
+          <el-input v-model="interviewForm.remark" type="textarea" :rows="2" placeholder="可选" />
+        </el-form-item>
+      </el-form>
+      <template #footer>
+        <el-button @click="interviewDialogVisible = false">取消</el-button>
+        <el-button type="primary" @click="submitInterview" :loading="submittingInterview">确定</el-button>
+      </template>
+    </el-dialog>
   </div>
 </template>
 
 <script setup>
 import { ref, computed, inject, onMounted, watch } from 'vue'
 import { useRouter } from 'vue-router'
-import { ElMessage } from 'element-plus'
-import { api } from '../api'
+import { ElMessage, ElMessageBox } from 'element-plus'
+import { api, INTERVIEW_STATUS_TEXT, INTERVIEW_STATUS_TYPE, INTERVIEW_WAY_TEXT, INTERVIEW_ROUNDS } from '../api'
 
 const router = useRouter()
 const refreshStats = inject('refreshStats')
@@ -182,10 +286,33 @@ const STATUS_TYPE = inject('STATUS_TYPE')
 const jobs = ref([])
 const applications = ref([])
 const messages = ref([])
+const interviews = ref([])
 const jobFilter = ref('')
 const statusFilter = ref('')
 const selectedId = ref(null)
 const activeTab = ref('resume')
+
+const interviewDialogVisible = ref(false)
+const isEditInterview = ref(false)
+const currentEditInterview = ref(null)
+const submittingInterview = ref(false)
+const interviewFormRef = ref(null)
+const interviewForm = ref({
+  round: '一面',
+  way: 'onsite',
+  interview_time: '',
+  interviewer: '',
+  location: '',
+  meeting_link: '',
+  remark: ''
+})
+
+const interviewRules = {
+  round: [{ required: true, message: '请选择面试轮次', trigger: 'change' }],
+  way: [{ required: true, message: '请选择面试方式', trigger: 'change' }],
+  interview_time: [{ required: true, message: '请选择面试时间', trigger: 'change' }],
+  interviewer: [{ required: true, message: '请输入面试官', trigger: 'blur' }]
+}
 
 const STATUS_FLOW = {
   pending: ['screening', 'communicating', 'rejected'],
@@ -229,6 +356,12 @@ const availableStatuses = computed(() => {
   }))
 })
 
+const canScheduleInterview = computed(() => {
+  if (!selectedApp.value) return false
+  const status = selectedApp.value.status
+  return status === 'pending' || status === 'screening' || status === 'communicating'
+})
+
 const formatTime = (t) => {
   if (!t) return ''
   return t.substring(5, 16)
@@ -263,6 +396,11 @@ const selectCandidate = async (app) => {
     messages.value = []
     ElMessage.error(e.message || '加载沟通记录失败')
   }
+  try {
+    interviews.value = await api.getApplicationInterviews(app.id)
+  } catch (e) {
+    interviews.value = []
+  }
 }
 
 const handleStatusChange = async (newStatus) => {
@@ -285,6 +423,81 @@ const handleStatusChange = async (newStatus) => {
 
 const goToComm = (id) => {
   router.push(`/communication/${id}`)
+}
+
+const openInterviewDialog = () => {
+  isEditInterview.value = false
+  currentEditInterview.value = null
+  interviewForm.value = {
+    round: '一面',
+    way: 'onsite',
+    interview_time: '',
+    interviewer: '',
+    location: '',
+    meeting_link: '',
+    remark: ''
+  }
+  interviewDialogVisible.value = true
+}
+
+const openEditInterviewDialog = (iv) => {
+  isEditInterview.value = true
+  currentEditInterview.value = iv
+  interviewForm.value = {
+    round: iv.round,
+    way: iv.way,
+    interview_time: iv.interview_time,
+    interviewer: iv.interviewer,
+    location: iv.location || '',
+    meeting_link: iv.meeting_link || '',
+    remark: iv.remark || ''
+  }
+  interviewDialogVisible.value = true
+}
+
+const submitInterview = async () => {
+  if (!interviewFormRef.value) return
+  await interviewFormRef.value.validate(async (valid) => {
+    if (!valid) return
+    submittingInterview.value = true
+    try {
+      if (isEditInterview.value) {
+        await api.updateInterview(currentEditInterview.value.id, interviewForm.value)
+        ElMessage.success('面试已更新')
+      } else {
+        await api.createInterview(selectedId.value, interviewForm.value)
+        ElMessage.success('面试安排成功')
+      }
+      interviewDialogVisible.value = false
+      interviews.value = await api.getApplicationInterviews(selectedId.value)
+      fetchData()
+      refreshStats()
+    } catch (e) {
+    } finally {
+      submittingInterview.value = false
+    }
+  })
+}
+
+const cancelInterview = async (iv) => {
+  try {
+    await ElMessageBox.confirm(`确定要取消 ${iv.round} 吗？`, '提示', {
+      type: 'warning'
+    })
+    const { value: reason } = await ElMessageBox.prompt('请输入取消原因（可选）', '取消面试', {
+      confirmButtonText: '确定',
+      cancelButtonText: '取消',
+      inputType: 'textarea',
+      inputPlaceholder: '可选',
+      type: 'warning'
+    })
+    await api.cancelInterview(iv.id, reason || '')
+    ElMessage.success('已取消面试')
+    interviews.value = await api.getApplicationInterviews(selectedId.value)
+    refreshStats()
+  } catch (e) {
+    if (e !== 'cancel') console.error(e)
+  }
 }
 
 onMounted(() => {
@@ -598,6 +811,77 @@ onMounted(() => {
   margin-top: 16px;
   padding-top: 12px;
   border-top: 1px solid #f3f4f6;
+}
+
+.interview-list {
+  padding: 8px 0;
+}
+
+.no-interviews {
+  text-align: center;
+  padding: 40px 0;
+}
+
+.no-interviews .el-button {
+  margin-top: 16px;
+}
+
+.interview-items {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.interview-item {
+  background: #f9fafb;
+  border-radius: 8px;
+  padding: 16px;
+  border: 1px solid #e5e7eb;
+}
+
+.interview-top {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 12px;
+}
+
+.interview-round {
+  font-weight: 600;
+  color: #1f2937;
+  font-size: 15px;
+}
+
+.interview-info {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  color: #6b7280;
+  font-size: 13px;
+}
+
+.interview-info .info-row {
+  display: flex;
+  align-items: flex-start;
+  gap: 6px;
+}
+
+.interview-info .info-row .el-icon {
+  margin-top: 2px;
+  flex-shrink: 0;
+}
+
+.interview-info .remark {
+  color: #9ca3af;
+  font-size: 12px;
+}
+
+.interview-actions {
+  display: flex;
+  gap: 12px;
+  margin-top: 12px;
+  padding-top: 12px;
+  border-top: 1px dashed #e5e7eb;
 }
 
 .empty-detail {

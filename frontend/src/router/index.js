@@ -34,6 +34,16 @@ const routes = [
     path: '/communication/:id',
     name: 'Communication',
     component: () => import('../views/Communication.vue')
+  },
+  {
+    path: '/interviews',
+    name: 'Interviews',
+    component: () => import('../views/Interviews.vue')
+  },
+  {
+    path: '/my-interviews',
+    name: 'MyInterviews',
+    component: () => import('../views/MyInterviews.vue')
   }
 ]
 

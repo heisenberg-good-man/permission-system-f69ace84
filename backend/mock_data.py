@@ -22,6 +22,32 @@ STATUS_TEXT = {
     'hired': '已录用'
 }
 
+INTERVIEW_STATUS = ('scheduled', 'completed', 'cancelled', 'no_show')
+
+INTERVIEW_STATUS_TEXT = {
+    'scheduled': '已安排',
+    'completed': '已完成',
+    'cancelled': '已取消',
+    'no_show': '未到场'
+}
+
+INTERVIEW_STATUS_TYPE = {
+    'scheduled': 'primary',
+    'completed': 'success',
+    'cancelled': 'info',
+    'no_show': 'danger'
+}
+
+INTERVIEW_WAYS = ('onsite', 'online', 'phone')
+
+INTERVIEW_WAY_TEXT = {
+    'onsite': '现场面试',
+    'online': '视频面试',
+    'phone': '电话面试'
+}
+
+INTERVIEW_ROUNDS = ('初筛', '一面', '二面', '三面', '终面', 'HR面')
+
 INITIAL_JOBS = [
     {
         'id': 1,
@@ -175,6 +201,26 @@ INITIAL_MESSAGES = [
     }
 ]
 
+INITIAL_INTERVIEWS = [
+    {
+        'id': 1,
+        'application_id': 2,
+        'job_id': 1,
+        'job_title': '高级前端工程师',
+        'candidate_name': '李四',
+        'round': '一面',
+        'way': 'onsite',
+        'interview_time': '2026-07-22 10:00:00',
+        'interviewer': '张技术总监',
+        'location': '北京市朝阳区望京SOHO T3 20层会议室A',
+        'meeting_link': '',
+        'remark': '请携带简历和作品集',
+        'status': 'scheduled',
+        'created_at': '2026-07-15 14:00:00',
+        'updated_at': '2026-07-15 14:00:00'
+    }
+]
+
 
 class MockDB:
     def __init__(self):
@@ -184,9 +230,11 @@ class MockDB:
         self.jobs = copy.deepcopy(INITIAL_JOBS)
         self.applications = copy.deepcopy(INITIAL_APPLICATIONS)
         self.messages = copy.deepcopy(INITIAL_MESSAGES)
+        self.interviews = copy.deepcopy(INITIAL_INTERVIEWS)
         self.next_job_id = max(j['id'] for j in self.jobs) + 1
         self.next_application_id = max(a['id'] for a in self.applications) + 1
         self.next_message_id = max(m['id'] for m in self.messages) + 1
+        self.next_interview_id = max(i['id'] for i in self.interviews) + 1
 
     def get_status_meta(self):
         return {
@@ -334,6 +382,7 @@ class MockDB:
         communicating = len([a for a in self.applications if a['status'] == 'communicating'])
         rejected = len([a for a in self.applications if a['status'] == 'rejected'])
         hired = len([a for a in self.applications if a['status'] == 'hired'])
+        scheduled_interviews = len([i for i in self.interviews if i['status'] == 'scheduled'])
         return {
             'total_jobs': total_jobs,
             'open_jobs': open_jobs,
@@ -344,8 +393,135 @@ class MockDB:
             'communicating': communicating,
             'rejected': rejected,
             'hired': hired,
+            'scheduled_interviews': scheduled_interviews,
             'status_text': STATUS_TEXT
         }
+
+    def get_interview_meta(self):
+        return {
+            'status_list': list(INTERVIEW_STATUS),
+            'status_text': INTERVIEW_STATUS_TEXT,
+            'status_type': INTERVIEW_STATUS_TYPE,
+            'way_list': list(INTERVIEW_WAYS),
+            'way_text': INTERVIEW_WAY_TEXT,
+            'round_list': list(INTERVIEW_ROUNDS)
+        }
+
+    def get_interviews(self, application_id=None, job_id=None, status=None, start_date=None, end_date=None):
+        result = self.interviews
+        if application_id:
+            result = [i for i in result if i['application_id'] == application_id]
+        if job_id:
+            result = [i for i in result if i['job_id'] == job_id]
+        if status:
+            result = [i for i in result if i['status'] == status]
+        if start_date:
+            result = [i for i in result if i['interview_time'] >= start_date]
+        if end_date:
+            result = [i for i in result if i['interview_time'] <= end_date + ' 23:59:59']
+        result = sorted(result, key=lambda x: x['interview_time'], reverse=True)
+        return result
+
+    def get_interview(self, interview_id):
+        for i in self.interviews:
+            if i['id'] == interview_id:
+                return i
+        return None
+
+    def create_interview(self, application_id, data):
+        app = self.get_application(application_id)
+        if not app:
+            return None, '投递记录不存在，无法安排面试'
+        if app['status'] == 'rejected':
+            return None, '该候选人状态为「不合适」，无法安排面试'
+        if app['status'] == 'hired':
+            return None, '该候选人已录用，无需安排面试'
+        if not data.get('interview_time'):
+            return None, '面试时间不能为空'
+        if not data.get('interviewer'):
+            return None, '面试官不能为空'
+        if not data.get('round'):
+            return None, '面试轮次不能为空'
+        if not data.get('way'):
+            return None, '面试方式不能为空'
+        way = data.get('way')
+        if way not in INTERVIEW_WAYS:
+            return None, f'无效的面试方式: {way}'
+        interview = {
+            'id': self.next_interview_id,
+            'application_id': application_id,
+            'job_id': app['job_id'],
+            'job_title': app['job_title'],
+            'candidate_name': app['candidate_name'],
+            'round': data.get('round', ''),
+            'way': way,
+            'interview_time': data.get('interview_time', ''),
+            'interviewer': data.get('interviewer', ''),
+            'location': data.get('location', ''),
+            'meeting_link': data.get('meeting_link', ''),
+            'remark': data.get('remark', ''),
+            'status': 'scheduled',
+            'created_at': now_str(),
+            'updated_at': now_str()
+        }
+        self.interviews.insert(0, interview)
+        self.next_interview_id += 1
+        if app['status'] in ('pending', 'screening'):
+            app['status'] = 'communicating'
+        sys_msg = f'【系统消息】已安排{interview["round"]}：{INTERVIEW_WAY_TEXT[interview["way"]]}，时间：{interview["interview_time"]}，面试官：{interview["interviewer"]}'
+        if interview['location']:
+            sys_msg += f'，地点：{interview["location"]}'
+        if interview['meeting_link']:
+            sys_msg += f'，会议链接：{interview["meeting_link"]}'
+        self._add_system_message(application_id, sys_msg)
+        return interview, None
+
+    def update_interview(self, interview_id, data):
+        interview = self.get_interview(interview_id)
+        if not interview:
+            return None, '面试记录不存在'
+        if interview['status'] != 'scheduled':
+            return None, '只有已安排状态的面试可以修改'
+        if 'way' in data and data['way'] not in INTERVIEW_WAYS:
+            return None, f'无效的面试方式: {data["way"]}'
+        old_time = interview['interview_time']
+        for k, v in data.items():
+            if k in interview and k not in ('id', 'application_id', 'job_id', 'job_title', 'candidate_name', 'status', 'created_at'):
+                interview[k] = v
+        interview['updated_at'] = now_str()
+        app = self.get_application(interview['application_id'])
+        if app and old_time != interview['interview_time']:
+            sys_msg = f'【系统消息】面试时间已调整：{interview["round"]}调整为 {interview["interview_time"]}'
+            self._add_system_message(interview['application_id'], sys_msg)
+        return interview, None
+
+    def cancel_interview(self, interview_id, reason=''):
+        interview = self.get_interview(interview_id)
+        if not interview:
+            return None, '面试记录不存在'
+        if interview['status'] != 'scheduled':
+            return None, '只有已安排状态的面试可以取消'
+        interview['status'] = 'cancelled'
+        interview['updated_at'] = now_str()
+        app = self.get_application(interview['application_id'])
+        if app:
+            sys_msg = f'【系统消息】{interview["round"]}已取消'
+            if reason:
+                sys_msg += f'，原因：{reason}'
+            self._add_system_message(interview['application_id'], sys_msg)
+        return interview, None
+
+    def _add_system_message(self, application_id, content):
+        msg = {
+            'id': self.next_message_id,
+            'application_id': application_id,
+            'sender': 'system',
+            'sender_name': '系统通知',
+            'content': content,
+            'created_at': now_str()
+        }
+        self.messages.append(msg)
+        self.next_message_id += 1
 
 
 db = MockDB()

@@ -23,6 +23,10 @@
             <el-icon><Document /></el-icon>
             <span>我的投递</span>
           </el-menu-item>
+          <el-menu-item v-if="role === 'candidate'" index="/my-interviews">
+            <el-icon><Calendar /></el-icon>
+            <span>我的面试</span>
+          </el-menu-item>
           <el-menu-item v-if="role === 'recruiter'" index="/job-manage">
             <el-icon><Edit /></el-icon>
             <span>职位管理</span>
@@ -30,6 +34,10 @@
           <el-menu-item v-if="role === 'recruiter'" index="/applications">
             <el-icon><User /></el-icon>
             <span>候选人</span>
+          </el-menu-item>
+          <el-menu-item v-if="role === 'recruiter'" index="/interviews">
+            <el-icon><Calendar /></el-icon>
+            <span>面试安排</span>
           </el-menu-item>
         </el-menu>
       </div>
@@ -66,7 +74,11 @@
     </div>
 
     <el-main class="app-main">
-      <router-view :key="$route.fullPath + '-' + role + '-' + dataVersion" />
+      <div v-if="!appReady" class="init-loading">
+        <el-icon class="is-loading" :size="32"><Loading /></el-icon>
+        <p>初始化中...</p>
+      </div>
+      <router-view v-else :key="$route.fullPath + '-' + role + '-' + dataVersion" />
     </el-main>
   </el-container>
 </template>
@@ -75,14 +87,15 @@
 import { ref, computed, onMounted, provide, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
-import { api, STATUS_TEXT, STATUS_TYPE } from './api'
+import { Loading } from '@element-plus/icons-vue'
+import { api, STATUS_TEXT, STATUS_TYPE, INTERVIEW_STATUS_TEXT, INTERVIEW_STATUS_TYPE, INTERVIEW_WAY_TEXT, INTERVIEW_ROUNDS } from './api'
 
 const route = useRoute()
 const router = useRouter()
 const role = ref(localStorage.getItem('role') || 'candidate')
 const stats = ref({})
 const dataVersion = ref(0)
-let initialized = false
+const appReady = ref(false)
 
 const activeMenu = computed(() => route.path)
 
@@ -94,7 +107,8 @@ const statItems = computed(() => {
       { label: '总投递', value: stats.value.total_applications || 0, icon: 'Document', color: '#e6a23c' },
       { label: '新投递', value: stats.value.pending_applications || 0, icon: 'Bell', color: '#f56c6c' },
       { label: '待沟通', value: stats.value.screening || 0, icon: 'Clock', color: '#909399' },
-      { label: '沟通中', value: stats.value.communicating || 0, icon: 'ChatDotRound', color: '#67c23a' }
+      { label: '沟通中', value: stats.value.communicating || 0, icon: 'ChatDotRound', color: '#67c23a' },
+      { label: '待面试', value: stats.value.scheduled_interviews || 0, icon: 'Calendar', color: '#e6a23c' }
     ]
   } else {
     return [
@@ -102,6 +116,7 @@ const statItems = computed(() => {
       { label: '总投递', value: stats.value.total_applications || 0, icon: 'Document', color: '#67c23a' },
       { label: '待沟通', value: stats.value.screening || 0, icon: 'Clock', color: '#e6a23c' },
       { label: '沟通中', value: stats.value.communicating || 0, icon: 'ChatDotRound', color: '#909399' },
+      { label: '待面试', value: stats.value.scheduled_interviews || 0, icon: 'Calendar', color: '#e6a23c' },
       { label: '不合适', value: stats.value.rejected || 0, icon: 'Close', color: '#f56c6c' }
     ]
   }
@@ -143,13 +158,13 @@ const handleReset = async () => {
 }
 
 const initData = async () => {
-  if (initialized) return
-  initialized = true
+  if (appReady.value) return
   try {
     await api.resetData()
   } catch (e) {}
+  await fetchStats()
   dataVersion.value++
-  fetchStats()
+  appReady.value = true
 }
 
 provide('refreshStats', fetchStats)
@@ -157,6 +172,10 @@ provide('refreshAll', refreshAll)
 provide('role', role)
 provide('STATUS_TEXT', STATUS_TEXT)
 provide('STATUS_TYPE', STATUS_TYPE)
+provide('INTERVIEW_STATUS_TEXT', INTERVIEW_STATUS_TEXT)
+provide('INTERVIEW_STATUS_TYPE', INTERVIEW_STATUS_TYPE)
+provide('INTERVIEW_WAY_TEXT', INTERVIEW_WAY_TEXT)
+provide('INTERVIEW_ROUNDS', INTERVIEW_ROUNDS)
 
 onMounted(() => {
   initData()
@@ -267,5 +286,19 @@ watch(() => route.path, () => {
   background: #f0f2f5;
   padding: 0;
   overflow-y: auto;
+}
+
+.init-loading {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  height: 100%;
+  color: #909399;
+  gap: 12px;
+}
+
+.init-loading p {
+  margin: 0;
 }
 </style>
