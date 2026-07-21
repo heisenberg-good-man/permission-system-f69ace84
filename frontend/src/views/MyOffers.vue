@@ -128,8 +128,7 @@ const filters = reactive({
 
 const detailVisible = ref(false)
 const currentOffer = ref(null)
-
-const candidateName = '李四'
+const currentCandidateName = inject('currentCandidateName')
 
 const fetchList = async () => {
   loading.value = true
@@ -137,7 +136,7 @@ const fetchList = async () => {
     const params = {}
     if (filters.status) params.status = filters.status
     const allOffers = await api.getOffers(params)
-    offers.value = allOffers.filter(o => o.candidate_name === candidateName && o.status !== 'draft')
+    offers.value = allOffers.filter(o => o.candidate_name === currentCandidateName.value && o.status !== 'draft')
   } catch (e) {}
   loading.value = false
 }
@@ -169,7 +168,9 @@ const handleAccept = async (row) => {
     detailVisible.value = false
     fetchList()
     refreshStats()
-  } catch (e) {}
+  } catch (e) {
+    if (e !== 'cancel') ElMessage.error(e.message || '操作失败')
+  }
 }
 
 const handleReject = async (row) => {
@@ -195,7 +196,9 @@ const handleReject = async (row) => {
     detailVisible.value = false
     fetchList()
     refreshStats()
-  } catch (e) {}
+  } catch (e) {
+    if (e !== 'cancel') ElMessage.error(e.message || '操作失败')
+  }
 }
 
 onMounted(() => {

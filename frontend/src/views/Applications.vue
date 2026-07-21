@@ -563,7 +563,7 @@ const availableStatuses = computed(() => {
 const canScheduleInterview = computed(() => {
   if (!selectedApp.value) return false
   const status = selectedApp.value.status
-  return status === 'pending' || status === 'screening' || status === 'communicating'
+  return status === 'screening' || status === 'communicating'
 })
 
 const formatTime = (t) => {
@@ -789,8 +789,14 @@ const submitOffer = async () => {
     }
     offerDialogVisible.value = false
     offers.value = await api.getOffers({ application_id: selectedId.value })
+    fetchData()
     refreshStats()
-  } catch (e) {}
+    try {
+      messages.value = await api.getMessages(selectedId.value)
+    } catch (e) {}
+  } catch (e) {
+    ElMessage.error(e.message || '操作失败')
+  }
 }
 
 const sendOffer = async (offer) => {
@@ -805,10 +811,12 @@ const sendOffer = async (offer) => {
     offers.value = await api.getOffers({ application_id: selectedId.value })
     fetchData()
     refreshStats()
-    if (activeTab.value === 'messages') {
+    try {
       messages.value = await api.getMessages(selectedId.value)
-    }
-  } catch (e) {}
+    } catch (e) {}
+  } catch (e) {
+    if (e !== 'cancel') ElMessage.error(e.message || '发送失败')
+  }
 }
 
 const withdrawOffer = async (offer) => {
@@ -829,10 +837,12 @@ const withdrawOffer = async (offer) => {
     offers.value = await api.getOffers({ application_id: selectedId.value })
     fetchData()
     refreshStats()
-    if (activeTab.value === 'messages') {
+    try {
       messages.value = await api.getMessages(selectedId.value)
-    }
-  } catch (e) {}
+    } catch (e) {}
+  } catch (e) {
+    if (e !== 'cancel') ElMessage.error(e.message || '撤回失败')
+  }
 }
 
 onMounted(async () => {

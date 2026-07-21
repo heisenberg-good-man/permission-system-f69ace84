@@ -92,7 +92,7 @@
               :key="app.id"
               :label="`${app.candidate_name} - ${app.job_title}（${STATUS_TEXT[app.status]}）`"
               :value="app.id"
-              :disabled="app.status === 'rejected' || app.status === 'hired'"
+              :disabled="app.status !== 'screening' && app.status !== 'communicating'"
             />
           </el-select>
         </el-form-item>
@@ -297,7 +297,7 @@ const fetchApplications = async () => {
   try {
     applications.value = await api.getApplications()
     candidateOptions.value = applications.value.filter(
-      a => a.status !== 'rejected' && a.status !== 'hired'
+      a => a.status === 'screening' || a.status === 'communicating'
     )
   } catch (e) {}
 }
@@ -338,7 +338,7 @@ const resetFilters = () => {
   fetchList()
 }
 
-const openCreateDialog = () => {
+const openCreateDialog = async () => {
   isEdit.value = false
   currentInterview.value = null
   Object.assign(form, {
@@ -351,6 +351,7 @@ const openCreateDialog = () => {
     meeting_link: '',
     remark: ''
   })
+  await fetchApplications()
   dialogVisible.value = true
 }
 
@@ -412,6 +413,7 @@ const submitForm = async () => {
       fetchApplications()
       refreshStats()
     } catch (e) {
+      ElMessage.error(e.message || '操作失败')
     } finally {
       submitting.value = false
     }

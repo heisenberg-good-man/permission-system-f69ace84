@@ -471,10 +471,8 @@ class MockDB:
         app = self.get_application(application_id)
         if not app:
             return None, '投递记录不存在，无法安排面试'
-        if app['status'] == 'rejected':
-            return None, '该候选人状态为「不合适」，无法安排面试'
-        if app['status'] == 'hired':
-            return None, '该候选人已录用，无需安排面试'
+        if app['status'] not in ('screening', 'communicating'):
+            return None, f'候选人状态为「{STATUS_TEXT[app["status"]]}」，无法安排面试，请先推进到「待沟通」或「沟通中」状态'
         if not data.get('interview_time'):
             return None, '面试时间不能为空'
         if not data.get('interviewer'):

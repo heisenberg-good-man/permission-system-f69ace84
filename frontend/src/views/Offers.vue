@@ -242,7 +242,7 @@ const fetchApplications = async () => {
       app.passed_interviews = passed.length
     })
     applications.value = apps
-    candidateOptions.value = apps.filter(a => a.status !== 'rejected')
+    candidateOptions.value = apps.filter(a => canCreateOffer(a))
   } catch (e) {}
 }
 
@@ -340,7 +340,9 @@ const handleSave = async () => {
     dialogVisible.value = false
     fetchList()
     refreshStats()
-  } catch (e) {}
+  } catch (e) {
+    ElMessage.error(e.message || '操作失败')
+  }
 }
 
 const handleSend = async (row) => {
@@ -354,7 +356,9 @@ const handleSend = async (row) => {
     ElMessage.success('Offer 已发送')
     fetchList()
     refreshStats()
-  } catch (e) {}
+  } catch (e) {
+    if (e !== 'cancel') ElMessage.error(e.message || '发送失败')
+  }
 }
 
 const handleWithdraw = async (row) => {
@@ -374,7 +378,9 @@ const handleWithdraw = async (row) => {
     ElMessage.success('Offer 已撤回')
     fetchList()
     refreshStats()
-  } catch (e) {}
+  } catch (e) {
+    if (e !== 'cancel') ElMessage.error(e.message || '撤回失败')
+  }
 }
 
 onMounted(() => {

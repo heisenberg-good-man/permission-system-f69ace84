@@ -331,7 +331,7 @@ const goToCandidates = () => {
 
 const canSchedule = (row) => {
   const status = row.status
-  return status === 'pending' || status === 'screening' || status === 'communicating'
+  return status === 'screening' || status === 'communicating'
 }
 
 const goToScheduleInterview = (row) => {
