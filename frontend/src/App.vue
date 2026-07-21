@@ -104,6 +104,7 @@ const role = ref(localStorage.getItem('role') || 'candidate')
 const stats = ref({})
 const dataVersion = ref(0)
 const appReady = ref(false)
+const currentCandidateName = ref('李四')
 
 const activeMenu = computed(() => route.path)
 
@@ -181,6 +182,7 @@ const initData = async () => {
 provide('refreshStats', fetchStats)
 provide('refreshAll', refreshAll)
 provide('role', role)
+provide('currentCandidateName', currentCandidateName)
 provide('STATUS_TEXT', STATUS_TEXT)
 provide('STATUS_TYPE', STATUS_TYPE)
 provide('INTERVIEW_STATUS_TEXT', INTERVIEW_STATUS_TEXT)

@@ -55,6 +55,7 @@ const router = useRouter()
 const refreshStats = inject('refreshStats')
 const STATUS_TEXT = inject('STATUS_TEXT')
 const STATUS_TYPE = inject('STATUS_TYPE')
+const currentCandidateName = inject('currentCandidateName')
 
 const applications = ref([])
 const loading = ref(false)
@@ -68,7 +69,8 @@ const filteredApps = computed(() => {
 const fetchData = async () => {
   loading.value = true
   try {
-    applications.value = await api.getApplications()
+    const all = await api.getApplications()
+    applications.value = all.filter(a => a.candidate_name === currentCandidateName.value)
   } finally {
     loading.value = false
   }

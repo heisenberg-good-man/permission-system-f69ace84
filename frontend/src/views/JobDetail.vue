@@ -94,10 +94,13 @@
                 </template>
               </el-table-column>
               <el-table-column prop="applied_at" label="投递时间" width="160" />
-              <el-table-column label="操作" width="200" fixed="right">
+              <el-table-column label="操作" width="280" fixed="right">
                 <template #default="{ row }">
                   <el-button type="primary" link size="small" @click="goToComm(row.id)">
                     沟通
+                  </el-button>
+                  <el-button type="success" link size="small" @click="goToScheduleInterview(row)" v-if="canSchedule(row)">
+                    安排面试
                   </el-button>
                   <el-dropdown trigger="click" @command="(v) => changeAppStatus(row, v)">
                     <el-button link size="small">
@@ -324,6 +327,15 @@ const goToManage = () => {
 
 const goToCandidates = () => {
   router.push('/applications')
+}
+
+const canSchedule = (row) => {
+  const status = row.status
+  return status === 'pending' || status === 'screening' || status === 'communicating'
+}
+
+const goToScheduleInterview = (row) => {
+  router.push({ path: '/applications', query: { appId: row.id, action: 'schedule' } })
 }
 
 onMounted(() => {

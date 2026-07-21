@@ -64,7 +64,7 @@
           <template #default="{ row }">
             <el-button link type="primary" @click="viewDetail(row)">详情</el-button>
             <el-button link type="primary" @click="openEditDialog(row)" v-if="row.status === 'scheduled'">
-              修改时间
+              修改
             </el-button>
             <el-button link type="success" @click="openFeedbackDialog(row)" v-if="row.status === 'scheduled' || row.status === 'completed'">
               反馈
@@ -220,7 +220,7 @@
         </div>
         <div class="detail-actions">
           <el-button type="primary" @click="openEditDialog(detailData)" v-if="detailData.status === 'scheduled'">
-            修改时间
+            修改面试
           </el-button>
           <el-button type="success" @click="openFeedbackDialog(detailData)" v-if="detailData.status === 'scheduled' || detailData.status === 'completed'">
             提交反馈
@@ -275,6 +275,7 @@ const form = reactive({
 })
 
 const rules = {
+  application_id: [{ required: true, message: '请选择候选人', trigger: 'change' }],
   round: [{ required: true, message: '请选择面试轮次', trigger: 'change' }],
   way: [{ required: true, message: '请选择面试方式', trigger: 'change' }],
   interview_time: [{ required: true, message: '请选择面试时间', trigger: 'change' }],

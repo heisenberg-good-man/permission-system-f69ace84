@@ -523,15 +523,34 @@ class MockDB:
             return None, '只有已安排状态的面试可以修改'
         if 'way' in data and data['way'] not in INTERVIEW_WAYS:
             return None, f'无效的面试方式: {data["way"]}'
+        old_round = interview['round']
+        old_way = interview['way']
         old_time = interview['interview_time']
+        old_interviewer = interview['interviewer']
+        old_location = interview['location']
+        old_meeting_link = interview['meeting_link']
         for k, v in data.items():
             if k in interview and k not in ('id', 'application_id', 'job_id', 'job_title', 'candidate_name', 'status', 'created_at'):
                 interview[k] = v
         interview['updated_at'] = now_str()
         app = self.get_application(interview['application_id'])
-        if app and old_time != interview['interview_time']:
-            sys_msg = f'【系统消息】面试时间已调整：{interview["round"]}调整为 {interview["interview_time"]}'
-            self._add_system_message(interview['application_id'], sys_msg)
+        if app:
+            changes = []
+            if old_time != interview['interview_time']:
+                changes.append(f'时间调整为 {interview["interview_time"]}')
+            if old_way != interview['way']:
+                changes.append(f'方式调整为 {INTERVIEW_WAY_TEXT[interview["way"]]}')
+            if old_interviewer != interview['interviewer']:
+                changes.append(f'面试官调整为 {interview["interviewer"]}')
+            if old_round != interview['round']:
+                changes.append(f'轮次调整为 {interview["round"]}')
+            if old_location != interview['location']:
+                changes.append(f'地点已更新')
+            if old_meeting_link != interview['meeting_link']:
+                changes.append(f'会议链接已更新')
+            if changes:
+                sys_msg = f'【系统消息】面试信息已更新：{interview["round"]}，{", ".join(changes)}'
+                self._add_system_message(interview['application_id'], sys_msg)
         return interview, None
 
     def cancel_interview(self, interview_id, reason=''):

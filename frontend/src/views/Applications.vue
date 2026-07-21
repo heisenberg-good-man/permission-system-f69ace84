@@ -431,11 +431,12 @@
 
 <script setup>
 import { ref, computed, inject, onMounted, watch } from 'vue'
-import { useRouter } from 'vue-router'
+import { useRouter, useRoute } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { api, INTERVIEW_STATUS_TEXT, INTERVIEW_STATUS_TYPE, INTERVIEW_WAY_TEXT, INTERVIEW_ROUNDS, INTERVIEW_FEEDBACK_RESULT_TEXT, INTERVIEW_FEEDBACK_RESULT_TYPE, OFFER_STATUS_TEXT, OFFER_STATUS_TYPE } from '../api'
 
 const router = useRouter()
+const route = useRoute()
 const refreshStats = inject('refreshStats')
 const STATUS_TEXT = inject('STATUS_TEXT')
 const STATUS_TYPE = inject('STATUS_TYPE')
@@ -680,6 +681,9 @@ const submitInterview = async () => {
       interviews.value = await api.getApplicationInterviews(selectedId.value)
       fetchData()
       refreshStats()
+      try {
+        messages.value = await api.getMessages(selectedId.value)
+      } catch (e) {}
     } catch (e) {
     } finally {
       submittingInterview.value = false
@@ -703,6 +707,9 @@ const cancelInterview = async (iv) => {
     ElMessage.success('已取消面试')
     interviews.value = await api.getApplicationInterviews(selectedId.value)
     refreshStats()
+    try {
+      messages.value = await api.getMessages(selectedId.value)
+    } catch (e) {}
   } catch (e) {
     if (e !== 'cancel') console.error(e)
   }
@@ -828,8 +835,20 @@ const withdrawOffer = async (offer) => {
   } catch (e) {}
 }
 
-onMounted(() => {
-  fetchData()
+onMounted(async () => {
+  await fetchData()
+  const appId = route.query.appId
+  const action = route.query.action
+  if (appId) {
+    const id = Number(appId)
+    const app = applications.value.find(a => a.id === id)
+    if (app) {
+      selectCandidate(app)
+      if (action === 'schedule' && canScheduleInterview.value) {
+        openInterviewDialog()
+      }
+    }
+  }
 })
 </script>
 

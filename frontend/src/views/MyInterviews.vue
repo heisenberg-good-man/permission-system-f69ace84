@@ -50,6 +50,14 @@
             </el-tag>
           </template>
         </el-table-column>
+        <el-table-column label="变更提醒" width="100">
+          <template #default="{ row }">
+            <el-tag v-if="hasUpdate(row)" type="warning" size="small" effect="light">
+              有更新
+            </el-tag>
+            <span v-else style="color: #9ca3af; font-size: 12px">-</span>
+          </template>
+        </el-table-column>
         <el-table-column label="操作" width="100" fixed="right">
           <template #default="{ row }">
             <el-button link type="primary" @click="viewDetail(row)">详情</el-button>
@@ -79,7 +87,25 @@
             </el-link>
           </el-descriptions-item>
           <el-descriptions-item label="备注" v-if="detailData.remark">{{ detailData.remark }}</el-descriptions-item>
+          <el-descriptions-item label="安排时间">{{ detailData.created_at }}</el-descriptions-item>
+          <el-descriptions-item label="最近更新" v-if="hasUpdate(detailData)">
+            <span style="color: #e6a23c">{{ detailData.updated_at }}</span>
+          </el-descriptions-item>
         </el-descriptions>
+
+        <div class="change-records" v-if="changeMessages.length > 0">
+          <h4>
+            <el-icon><Bell /></el-icon>
+            变更提醒
+          </h4>
+          <div class="change-list">
+            <div v-for="msg in changeMessages" :key="msg.id" class="change-item">
+              <div class="change-time">{{ msg.created_at }}</div>
+              <div class="change-content">{{ msg.content }}</div>
+            </div>
+          </div>
+        </div>
+
         <div class="feedback-result" v-if="detailData.status === 'completed' && detailData.feedback_result">
           <h4>面试结果</h4>
           <el-descriptions :column="1" border>
@@ -109,9 +135,12 @@
 </template>
 
 <script setup>
-import { ref, reactive, onMounted } from 'vue'
-import { InfoFilled } from '@element-plus/icons-vue'
+import { ref, reactive, inject, onMounted } from 'vue'
+import { InfoFilled, Bell } from '@element-plus/icons-vue'
 import { api, INTERVIEW_STATUS_TEXT, INTERVIEW_STATUS_TYPE, INTERVIEW_WAY_TEXT, INTERVIEW_FEEDBACK_RESULT_TEXT, INTERVIEW_FEEDBACK_RESULT_TYPE } from '../api'
+
+const currentCandidateName = inject('currentCandidateName')
+const refreshStats = inject('refreshStats')
 
 const loading = ref(false)
 const interviews = ref([])
@@ -124,8 +153,12 @@ const dateRange = ref([])
 
 const detailVisible = ref(false)
 const detailData = ref(null)
+const changeMessages = ref([])
 
-const candidateName = '李四'
+const hasUpdate = (row) => {
+  if (!row || !row.created_at || !row.updated_at) return false
+  return row.created_at !== row.updated_at
+}
 
 const fetchList = async () => {
   loading.value = true
@@ -136,7 +169,7 @@ const fetchList = async () => {
       end_date: filters.end_date || undefined
     }
     const all = await api.getInterviews(params)
-    interviews.value = all.filter(i => i.candidate_name === candidateName)
+    interviews.value = all.filter(i => i.candidate_name === currentCandidateName.value)
   } catch (e) {
   } finally {
     loading.value = false
@@ -162,13 +195,23 @@ const resetFilters = () => {
   fetchList()
 }
 
-const viewDetail = (row) => {
+const viewDetail = async (row) => {
   detailData.value = row
+  changeMessages.value = []
   detailVisible.value = true
+  try {
+    const msgs = await api.getMessages(row.application_id)
+    changeMessages.value = msgs.filter(m => 
+      m.sender === 'system' && 
+      m.content.includes('面试') &&
+      (m.content.includes('已更新') || m.content.includes('已取消') || m.content.includes('已安排'))
+    ).reverse()
+  } catch (e) {}
 }
 
 onMounted(() => {
   fetchList()
+  refreshStats()
 })
 </script>
 
@@ -239,5 +282,43 @@ onMounted(() => {
   margin: 0;
   color: #606266;
   line-height: 1.6;
+}
+
+.change-records {
+  margin-top: 20px;
+}
+
+.change-records h4 {
+  margin: 0 0 12px 0;
+  font-size: 15px;
+  color: #303133;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.change-list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.change-item {
+  background: #fdf6ec;
+  border-left: 3px solid #e6a23c;
+  padding: 10px 14px;
+  border-radius: 4px;
+}
+
+.change-time {
+  font-size: 12px;
+  color: #9ca3af;
+  margin-bottom: 4px;
+}
+
+.change-content {
+  font-size: 13px;
+  color: #6b7280;
+  line-height: 1.5;
 }
 </style>
