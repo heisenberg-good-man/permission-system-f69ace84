@@ -292,14 +292,10 @@ const fetchList = async () => {
 }
 
 const onFilterChange = () => {
-  router.replace({
-    path: '/offers',
-    query: {
-      ...route.query,
-      status: filters.status || undefined,
-      job_id: filters.job_id || undefined
-    }
-  })
+  const query = {}
+  if (filters.status) query.status = filters.status
+  if (filters.job_id) query.job_id = filters.job_id
+  router.replace({ path: '/offers', query })
   fetchList()
 }
 
@@ -311,32 +307,26 @@ const resetFilters = () => {
 }
 
 const initFromRoute = () => {
-  const status = route.query.status
-  const job_id = route.query.job_id
-  if (status && typeof status === 'string') {
-    filters.status = status
-  }
-  if (job_id && typeof job_id === 'string') {
-    filters.job_id = job_id
-  }
+  filters.status = route.query.status || ''
+  filters.job_id = route.query.job_id || ''
 }
 
-watch(() => route.query, () => {
-  const newStatus = route.query.status
-  const newJobId = route.query.job_id
+watch(() => route.query, (newQuery) => {
+  const newStatus = newQuery.status || ''
+  const newJobId = newQuery.job_id || ''
   let changed = false
-  if (newStatus !== undefined && newStatus !== filters.status) {
+  if (newStatus !== filters.status) {
     filters.status = newStatus
     changed = true
   }
-  if (newJobId !== undefined && newJobId !== filters.job_id) {
+  if (newJobId !== filters.job_id) {
     filters.job_id = newJobId
     changed = true
   }
   if (changed) {
     fetchList()
   }
-})
+}, { immediate: true })
 
 const resetForm = () => {
   form.application_id = null

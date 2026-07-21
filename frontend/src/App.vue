@@ -206,6 +206,13 @@ provide('INTERVIEW_STATUS_TYPE', INTERVIEW_STATUS_TYPE)
 provide('INTERVIEW_WAY_TEXT', INTERVIEW_WAY_TEXT)
 provide('INTERVIEW_ROUNDS', INTERVIEW_ROUNDS)
 
+const appActions = {
+  refreshStats: fetchStats,
+  refreshAll,
+  refreshDashboardStats
+}
+provide('appActions', appActions)
+
 onMounted(() => {
   initData()
 })

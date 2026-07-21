@@ -443,22 +443,39 @@ class MockDB:
         week_start = now - timedelta(days=now.weekday())
         week_start_str = week_start.strftime('%Y-%m-%d')
 
+        end_date_full = end_date + ' 23:59:59' if end_date else None
+
         jobs = self.jobs
         if job_id:
             jobs = [j for j in jobs if j['id'] == job_id]
-        job_ids = [j['id'] for j in jobs]
+        if start_date:
+            jobs = [j for j in jobs if j['created_at'] >= start_date]
+        if end_date_full:
+            jobs = [j for j in jobs if j['created_at'] <= end_date_full]
 
         apps = self.applications
         if job_id:
             apps = [a for a in apps if a['job_id'] == job_id]
+        if start_date:
+            apps = [a for a in apps if a['applied_at'] >= start_date]
+        if end_date_full:
+            apps = [a for a in apps if a['applied_at'] <= end_date_full]
 
         interviews = self.interviews
         if job_id:
             interviews = [i for i in interviews if i['job_id'] == job_id]
+        if start_date:
+            interviews = [i for i in interviews if i['interview_time'] >= start_date]
+        if end_date_full:
+            interviews = [i for i in interviews if i['interview_time'] <= end_date_full]
 
         offers = self.offers
         if job_id:
             offers = [o for o in offers if o['job_id'] == job_id]
+        if start_date:
+            offers = [o for o in offers if o['created_at'] >= start_date]
+        if end_date_full:
+            offers = [o for o in offers if o['created_at'] <= end_date_full]
 
         total_jobs = len(jobs)
         open_jobs = len([j for j in jobs if j['status'] == 'open'])
@@ -477,7 +494,7 @@ class MockDB:
         total_interviews = len(interviews)
 
         today_interviews = len([i for i in interviews if i['interview_time'].startswith(today_str)])
-        week_interviews = len([i for i in interviews if i['interview_time'] >= week_start_str])
+        week_interviews = len([i for i in interviews if i['interview_time'] >= week_start_str and i['interview_time'] < (now + timedelta(days=7 - now.weekday())).strftime('%Y-%m-%d')])
 
         draft_offers = len([o for o in offers if o['status'] == 'draft'])
         sent_offers = len([o for o in offers if o['status'] == 'sent'])
@@ -496,7 +513,8 @@ class MockDB:
             'to_hire': hired
         }
 
-        job_list = [{'id': j['id'], 'title': j['title'], 'status': j['status']} for j in jobs]
+        all_jobs_for_filter = self.jobs
+        job_list = [{'id': j['id'], 'title': j['title'], 'status': j['status']} for j in all_jobs_for_filter]
 
         return {
             'total_jobs': total_jobs,

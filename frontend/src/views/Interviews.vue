@@ -11,12 +11,12 @@
     <el-card class="filter-card">
       <el-form :inline="true" :model="filters" @submit.prevent>
         <el-form-item label="职位">
-          <el-select v-model="filters.job_id" placeholder="全部职位" clearable style="width: 200px" @change="fetchList">
+          <el-select v-model="filters.job_id" placeholder="全部职位" clearable style="width: 200px" @change="onFilterJobChange">
             <el-option v-for="job in jobs" :key="job.id" :label="job.title" :value="job.id" />
           </el-select>
         </el-form-item>
         <el-form-item label="状态">
-          <el-radio-group v-model="filters.status" @change="fetchList">
+          <el-radio-group v-model="filters.status" @change="onFilterStatusChange">
             <el-radio-button value="">全部</el-radio-button>
             <el-radio-button value="scheduled">已安排</el-radio-button>
             <el-radio-button value="completed">已完成</el-radio-button>
@@ -249,13 +249,14 @@
 </template>
 
 <script setup>
-import { ref, reactive, inject, onMounted, computed } from 'vue'
-import { useRouter } from 'vue-router'
+import { ref, reactive, inject, onMounted, computed, watch } from 'vue'
+import { useRouter, useRoute } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { Plus } from '@element-plus/icons-vue'
 import { api, STATUS_TEXT, INTERVIEW_STATUS_TEXT, INTERVIEW_STATUS_TYPE, INTERVIEW_WAY_TEXT, INTERVIEW_ROUNDS, INTERVIEW_FEEDBACK_RESULT_TEXT, INTERVIEW_FEEDBACK_RESULT_TYPE } from '../api'
 
 const router = useRouter()
+const route = useRoute()
 const refreshStats = inject('refreshStats')
 const refreshAll = inject('refreshAll')
 const refreshDashboardStats = inject('refreshDashboardStats')
@@ -356,6 +357,7 @@ const resetFilters = () => {
   filters.start_date = ''
   filters.end_date = ''
   dateRange.value = []
+  syncUrlFromFilters()
   fetchList()
 }
 
@@ -397,6 +399,45 @@ const onJobFilterChange = () => {
   form.application_id = null
   formRef.value?.clearValidate('application_id')
 }
+
+const onFilterJobChange = () => {
+  syncUrlFromFilters()
+  fetchList()
+}
+
+const onFilterStatusChange = () => {
+  syncUrlFromFilters()
+  fetchList()
+}
+
+const syncUrlFromFilters = () => {
+  const query = {}
+  if (filters.job_id) query.job_id = filters.job_id
+  if (filters.status) query.status = filters.status
+  router.replace({ path: '/interviews', query })
+}
+
+const initFromRoute = () => {
+  filters.job_id = route.query.job_id || ''
+  filters.status = route.query.status || ''
+}
+
+watch(() => route.query, (newQuery) => {
+  const newJobId = newQuery.job_id || ''
+  const newStatus = newQuery.status || ''
+  let changed = false
+  if (newJobId !== filters.job_id) {
+    filters.job_id = newJobId
+    changed = true
+  }
+  if (newStatus !== filters.status) {
+    filters.status = newStatus
+    changed = true
+  }
+  if (changed) {
+    fetchList()
+  }
+}, { immediate: true })
 
 const onAppChange = () => {
   const app = applications.value.find(a => a.id === form.application_id)

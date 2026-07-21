@@ -216,10 +216,33 @@ const stats = computed(() => {
 
 const localStats = ref({})
 
+const getDateRange = () => {
+  const now = new Date()
+  let start_date = ''
+  let end_date = ''
+  if (filters.timeRange === 'today') {
+    const today = now.toISOString().split('T')[0]
+    start_date = today
+    end_date = today
+  } else if (filters.timeRange === 'week') {
+    const day = now.getDay()
+    const diff = now.getDate() - day + (day === 0 ? -6 : 1)
+    const monday = new Date(now.setDate(diff))
+    start_date = monday.toISOString().split('T')[0]
+    const sunday = new Date(monday)
+    sunday.setDate(monday.getDate() + 6)
+    end_date = sunday.toISOString().split('T')[0]
+  }
+  return { start_date, end_date }
+}
+
 const fetchDashboardStats = async () => {
   try {
     const params = {}
     if (filters.job_id) params.job_id = filters.job_id
+    const { start_date, end_date } = getDateRange()
+    if (start_date) params.start_date = start_date
+    if (end_date) params.end_date = end_date
     const data = await api.getDashboardStats(params)
     localStats.value = data
     if (data.job_list) {
@@ -232,11 +255,16 @@ const fetchDashboardStats = async () => {
 }
 
 const goToInterviews = () => {
-  router.push('/interviews')
+  const query = {}
+  if (filters.job_id) query.job_id = filters.job_id
+  router.push({ path: '/interviews', query })
 }
 
 const goToOffers = (status) => {
-  router.push({ path: '/offers', query: { status } })
+  const query = {}
+  if (status) query.status = status
+  if (filters.job_id) query.job_id = filters.job_id
+  router.push({ path: '/offers', query })
 }
 
 const loadData = () => {

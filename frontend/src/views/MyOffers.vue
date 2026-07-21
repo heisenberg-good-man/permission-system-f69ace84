@@ -121,7 +121,7 @@ import { ref, reactive, onMounted, inject } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { api, OFFER_STATUS_TEXT, OFFER_STATUS_TYPE } from '../api'
 
-const { refreshStats } = inject('appActions', { refreshStats: () => {} })
+const { refreshStats, refreshAll, refreshDashboardStats } = inject('appActions', { refreshStats: () => {}, refreshAll: () => {}, refreshDashboardStats: () => {} })
 
 const loading = ref(false)
 const offers = ref([])
@@ -172,6 +172,8 @@ const handleAccept = async (row) => {
     detailVisible.value = false
     fetchList()
     refreshStats()
+    refreshDashboardStats()
+    refreshAll()
   } catch (e) {
     if (e !== 'cancel') ElMessage.error(e.message || '操作失败')
   }
@@ -200,6 +202,8 @@ const handleReject = async (row) => {
     detailVisible.value = false
     fetchList()
     refreshStats()
+    refreshDashboardStats()
+    refreshAll()
   } catch (e) {
     if (e !== 'cancel') ElMessage.error(e.message || '操作失败')
   }
