@@ -193,6 +193,7 @@ import { ref, reactive, inject, onMounted, computed, watch } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
 import { Calendar, Document, Check, ArrowRight, Bottom, Promotion } from '@element-plus/icons-vue'
 import { api } from '../api'
+import { getDateRange } from '../utils/date'
 
 const router = useRouter()
 const route = useRoute()
@@ -216,37 +217,11 @@ const stats = computed(() => {
 
 const localStats = ref({})
 
-const formatLocalDate = (date) => {
-  const y = date.getFullYear()
-  const m = String(date.getMonth() + 1).padStart(2, '0')
-  const d = String(date.getDate()).padStart(2, '0')
-  return `${y}-${m}-${d}`
-}
-
-const getDateRange = () => {
-  const now = new Date()
-  let start_date = ''
-  let end_date = ''
-  if (filters.timeRange === 'today') {
-    const today = formatLocalDate(now)
-    start_date = today
-    end_date = today
-  } else if (filters.timeRange === 'week') {
-    const day = now.getDay()
-    const diff = now.getDate() - day + (day === 0 ? -6 : 1)
-    const monday = new Date(now.getFullYear(), now.getMonth(), diff)
-    start_date = formatLocalDate(monday)
-    const sunday = new Date(monday.getFullYear(), monday.getMonth(), monday.getDate() + 6)
-    end_date = formatLocalDate(sunday)
-  }
-  return { start_date, end_date }
-}
-
 const fetchDashboardStats = async () => {
   try {
     const params = {}
     if (filters.job_id) params.job_id = filters.job_id
-    const { start_date, end_date } = getDateRange()
+    const { start_date, end_date } = getDateRange(filters.timeRange)
     if (start_date) params.start_date = start_date
     if (end_date) params.end_date = end_date
     const data = await api.getDashboardStats(params)

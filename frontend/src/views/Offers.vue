@@ -32,6 +32,37 @@
       </el-form>
     </el-card>
 
+    <el-card class="stats-card">
+      <div class="stat-item" :class="{ active: filters.status === '' }" @click="setStatusFilter('')">
+        <div class="stat-num">{{ offerStats.total }}</div>
+        <div class="stat-label">全部</div>
+      </div>
+      <div class="stat-item" :class="{ active: filters.status === 'draft' }" @click="setStatusFilter('draft')">
+        <div class="stat-num">{{ offerStats.draft }}</div>
+        <div class="stat-label">草稿</div>
+      </div>
+      <div class="stat-item" :class="{ active: filters.status === 'sent' }" @click="setStatusFilter('sent')">
+        <div class="stat-num">{{ offerStats.sent }}</div>
+        <div class="stat-label">已发送</div>
+      </div>
+      <div class="stat-item" :class="{ active: filters.status === 'accepted' }" @click="setStatusFilter('accepted')">
+        <div class="stat-num">{{ offerStats.accepted }}</div>
+        <div class="stat-label">已接受</div>
+      </div>
+      <div class="stat-item" :class="{ active: filters.status === 'rejected' }" @click="setStatusFilter('rejected')">
+        <div class="stat-num">{{ offerStats.rejected }}</div>
+        <div class="stat-label">已拒绝</div>
+      </div>
+      <div class="stat-item" :class="{ active: filters.status === 'withdrawn' }" @click="setStatusFilter('withdrawn')">
+        <div class="stat-num">{{ offerStats.withdrawn }}</div>
+        <div class="stat-label">已撤回</div>
+      </div>
+      <div class="stat-item" :class="{ active: filters.status === 'processed' }" @click="setStatusFilter('processed')">
+        <div class="stat-num">{{ offerStats.processed }}</div>
+        <div class="stat-label">已处理</div>
+      </div>
+    </el-card>
+
     <el-card class="list-card">
       <el-table :data="offers" v-loading="loading" stripe>
         <el-table-column prop="candidate_name" label="候选人" width="100" />
@@ -176,6 +207,41 @@
             </el-descriptions-item>
           </el-descriptions>
         </div>
+        <div class="detail-actions">
+          <el-button v-if="currentOffer.status === 'draft'" type="primary" @click="openEditDialog(currentOffer)">
+            编辑
+          </el-button>
+          <el-button v-if="currentOffer.status === 'draft'" type="success" @click="handleSend(currentOffer)">
+            发送
+          </el-button>
+          <el-button v-if="currentOffer.status === 'draft' || currentOffer.status === 'sent'" type="danger" @click="handleWithdraw(currentOffer)">
+            撤回
+          </el-button>
+          <el-alert
+            v-if="currentOffer.status === 'accepted'"
+            type="success"
+            :closable="false"
+            title="该 Offer 已被候选人接受"
+            description="候选人已确认接受，请注意跟进入职流程。"
+            show-icon
+          />
+          <el-alert
+            v-if="currentOffer.status === 'rejected'"
+            type="error"
+            :closable="false"
+            title="该 Offer 已被候选人拒绝"
+            :description="currentOffer.reject_reason ? `拒绝原因：${currentOffer.reject_reason}` : '候选人已拒绝该 Offer'"
+            show-icon
+          />
+          <el-alert
+            v-if="currentOffer.status === 'withdrawn'"
+            type="warning"
+            :closable="false"
+            title="该 Offer 已撤回"
+            :description="currentOffer.withdraw_reason ? `撤回原因：${currentOffer.withdraw_reason}` : '该 Offer 已被撤回'"
+            show-icon
+          />
+        </div>
       </div>
     </el-drawer>
   </div>
@@ -232,6 +298,27 @@ const rules = {
 
 const candidateOptions = ref([])
 
+const allOffers = ref([])
+
+const offerStats = computed(() => {
+  const list = allOffers.value
+  const draft = list.filter(o => o.status === 'draft').length
+  const sent = list.filter(o => o.status === 'sent').length
+  const accepted = list.filter(o => o.status === 'accepted').length
+  const rejected = list.filter(o => o.status === 'rejected').length
+  const withdrawn = list.filter(o => o.status === 'withdrawn').length
+  const processed = accepted + rejected + withdrawn
+  return {
+    total: list.length,
+    draft,
+    sent,
+    accepted,
+    rejected,
+    withdrawn,
+    processed
+  }
+})
+
 const canCreateOffer = (app) => {
   return app.passed_interviews && app.passed_interviews > 0
 }
@@ -277,18 +364,24 @@ const fetchList = async () => {
   try {
     const params = {}
     if (filters.job_id) params.job_id = filters.job_id
-    let allOffers = await api.getOffers(params)
+    let list = await api.getOffers(params)
+    allOffers.value = list
     if (filters.status === 'processed') {
-      offers.value = allOffers.filter(o => 
+      offers.value = list.filter(o =>
         o.status === 'accepted' || o.status === 'rejected' || o.status === 'withdrawn'
       )
     } else if (filters.status) {
-      offers.value = allOffers.filter(o => o.status === filters.status)
+      offers.value = list.filter(o => o.status === filters.status)
     } else {
-      offers.value = allOffers
+      offers.value = list
     }
   } catch (e) {}
   loading.value = false
+}
+
+const setStatusFilter = (status) => {
+  filters.status = status
+  onFilterChange()
 }
 
 const onFilterChange = () => {
@@ -441,11 +534,16 @@ const handleWithdraw = async (row) => {
         confirmButtonText: '确认撤回',
         cancelButtonText: '取消',
         inputType: 'textarea',
-        inputPlaceholder: '请输入撤回原因（可选）',
-        inputValidator: () => true
+        inputPlaceholder: '请输入撤回原因',
+        inputValidator: (val) => {
+          if (!val || !val.trim()) {
+            return '请输入撤回原因'
+          }
+          return true
+        }
       }
     )
-    await api.withdrawOffer(row.id, reason || '')
+    await api.withdrawOffer(row.id, reason)
     ElMessage.success('Offer 已撤回')
     fetchList()
     refreshStats()
@@ -479,7 +577,51 @@ onMounted(() => {
 }
 
 .filter-card {
-  margin-bottom: 20px;
+  margin-bottom: 16px;
+}
+
+.stats-card {
+  margin-bottom: 16px;
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.stat-item {
+  flex: 1;
+  min-width: 80px;
+  text-align: center;
+  padding: 12px 8px;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: all 0.2s;
+  background: #f5f7fa;
+}
+
+.stat-item:hover {
+  background: #ecf5ff;
+}
+
+.stat-item.active {
+  background: #ecf5ff;
+  border: 1px solid #409eff;
+}
+
+.stat-item.active .stat-num {
+  color: #409eff;
+}
+
+.stat-num {
+  font-size: 22px;
+  font-weight: 700;
+  color: #303133;
+  line-height: 1.2;
+}
+
+.stat-label {
+  font-size: 12px;
+  color: #909399;
+  margin-top: 4px;
 }
 
 .list-card {
@@ -505,5 +647,14 @@ onMounted(() => {
   margin: 0;
   line-height: 1.6;
   color: #606266;
+}
+
+.detail-actions {
+  margin-top: 24px;
+  padding-top: 20px;
+  border-top: 1px solid #ebeef5;
+  display: flex;
+  gap: 12px;
+  flex-wrap: wrap;
 }
 </style>

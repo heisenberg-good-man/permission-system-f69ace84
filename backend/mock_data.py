@@ -80,20 +80,29 @@ def _gen_dates():
     today = now.strftime('%Y-%m-%d')
     monday = now - timedelta(days=now.weekday())
     tuesday = monday + timedelta(days=1)
+    wednesday = monday + timedelta(days=2)
+    thursday = monday + timedelta(days=3)
     two_weeks_ago = monday - timedelta(days=7)
     last_month = now - timedelta(days=30)
     return {
         'today': today + ' 10:00:00',
         'today_afternoon': today + ' 14:30:00',
+        'today_evening': today + ' 18:00:00',
         'this_tuesday': tuesday.strftime('%Y-%m-%d') + ' 09:00:00',
+        'this_wednesday': wednesday.strftime('%Y-%m-%d') + ' 11:00:00',
+        'this_thursday': thursday.strftime('%Y-%m-%d') + ' 15:00:00',
         'this_week': monday.strftime('%Y-%m-%d') + ' 11:00:00',
         'last_week': two_weeks_ago.strftime('%Y-%m-%d') + ' 10:00:00',
+        'last_week_friday': (two_weeks_ago + timedelta(days=4)).strftime('%Y-%m-%d') + ' 16:00:00',
         'last_month': last_month.strftime('%Y-%m-%d') + ' 15:00:00',
         'today_interview': today + ' 15:00:00',
         'tomorrow_interview': (now + timedelta(days=1)).strftime('%Y-%m-%d') + ' 10:00:00',
         'yesterday_interview': (now - timedelta(days=1)).strftime('%Y-%m-%d') + ' 14:00:00',
         'week_interview': tuesday.strftime('%Y-%m-%d') + ' 11:00:00',
         'old_interview': two_weeks_ago.strftime('%Y-%m-%d') + ' 10:00:00',
+        'offer_join_today': (now + timedelta(days=7)).strftime('%Y-%m-%d'),
+        'offer_join_next_week': (now + timedelta(days=14)).strftime('%Y-%m-%d'),
+        'offer_join_next_month': (now + timedelta(days=30)).strftime('%Y-%m-%d'),
     }
 
 
@@ -233,6 +242,71 @@ INITIAL_APPLICATIONS = [
         'resume': '5年 Python 后端经验，精通 Django + PostgreSQL，带过 3 人团队。',
         'status': 'pending',
         'applied_at': 'DYNAMIC_today_afternoon'
+    },
+    {
+        'id': 6,
+        'job_id': 1,
+        'job_title': '高级前端工程师',
+        'candidate_name': '周八',
+        'candidate_phone': '13800138006',
+        'candidate_email': 'zhouba@example.com',
+        'education': '本科',
+        'experience': '6年',
+        'resume': '6年前端经验，精通 Vue3 + TypeScript，有大型中台项目经验。',
+        'status': 'communicating',
+        'applied_at': 'DYNAMIC_last_week'
+    },
+    {
+        'id': 7,
+        'job_id': 3,
+        'job_title': '产品经理',
+        'candidate_name': '吴九',
+        'candidate_phone': '13800138007',
+        'candidate_email': 'wujiu@example.com',
+        'education': '硕士',
+        'experience': '5年',
+        'resume': '5年 B 端产品经验，负责过企业 SaaS 产品全生命周期。',
+        'status': 'communicating',
+        'applied_at': 'DYNAMIC_this_tuesday'
+    },
+    {
+        'id': 8,
+        'job_id': 2,
+        'job_title': 'Python 后端开发工程师',
+        'candidate_name': '郑十',
+        'candidate_phone': '13800138008',
+        'candidate_email': 'zhengshi@example.com',
+        'education': '硕士',
+        'experience': '3年',
+        'resume': '3年后端经验，熟悉 FastAPI + MySQL，有高并发系统经验。',
+        'status': 'communicating',
+        'applied_at': 'DYNAMIC_this_wednesday'
+    },
+    {
+        'id': 9,
+        'job_id': 1,
+        'job_title': '高级前端工程师',
+        'candidate_name': '钱十一',
+        'candidate_phone': '13800138009',
+        'candidate_email': 'qianshiyi@example.com',
+        'education': '本科',
+        'experience': '4年',
+        'resume': '4年前端经验，熟悉 React + Node.js 全栈开发。',
+        'status': 'communicating',
+        'applied_at': 'DYNAMIC_last_month'
+    },
+    {
+        'id': 10,
+        'job_id': 3,
+        'job_title': '产品经理',
+        'candidate_name': '陈十二',
+        'candidate_phone': '13800138010',
+        'candidate_email': 'chenshier@example.com',
+        'education': '本科',
+        'experience': '3年',
+        'resume': '3年 C 端产品经验，有用户增长产品经验。',
+        'status': 'screening',
+        'applied_at': 'DYNAMIC_today'
     }
 ]
 
@@ -326,10 +400,269 @@ INITIAL_INTERVIEWS = [
         'feedback_at': '',
         'created_at': 'DYNAMIC_today',
         'updated_at': 'DYNAMIC_today'
+    },
+    {
+        'id': 4,
+        'application_id': 6,
+        'job_id': 1,
+        'job_title': '高级前端工程师',
+        'candidate_name': '周八',
+        'round': '二面',
+        'way': 'onsite',
+        'interview_time': 'DYNAMIC_last_week',
+        'interviewer': '张技术总监',
+        'location': '北京市朝阳区望京SOHO T3 20层会议室A',
+        'meeting_link': '',
+        'remark': '',
+        'status': 'completed',
+        'feedback_result': 'pass',
+        'feedback_comment': '技术扎实，经验丰富，符合岗位要求',
+        'feedback_rating': 5,
+        'feedback_at': 'DYNAMIC_last_week',
+        'created_at': 'DYNAMIC_last_week',
+        'updated_at': 'DYNAMIC_last_week'
+    },
+    {
+        'id': 5,
+        'application_id': 7,
+        'job_id': 3,
+        'job_title': '产品经理',
+        'candidate_name': '吴九',
+        'round': '终面',
+        'way': 'onsite',
+        'interview_time': 'DYNAMIC_this_tuesday',
+        'interviewer': '产品总监',
+        'location': '深圳市南山区科技园',
+        'meeting_link': '',
+        'remark': '',
+        'status': 'completed',
+        'feedback_result': 'pass',
+        'feedback_comment': '产品思维好，经验匹配',
+        'feedback_rating': 4,
+        'feedback_at': 'DYNAMIC_this_tuesday',
+        'created_at': 'DYNAMIC_this_tuesday',
+        'updated_at': 'DYNAMIC_this_tuesday'
+    },
+    {
+        'id': 6,
+        'application_id': 8,
+        'job_id': 2,
+        'job_title': 'Python 后端开发工程师',
+        'candidate_name': '郑十',
+        'round': '一面',
+        'way': 'online',
+        'interview_time': 'DYNAMIC_this_wednesday',
+        'interviewer': '王技术经理',
+        'location': '',
+        'meeting_link': 'https://meeting.example.com/789',
+        'remark': '',
+        'status': 'completed',
+        'feedback_result': 'pass',
+        'feedback_comment': '基础扎实，潜力大',
+        'feedback_rating': 4,
+        'feedback_at': 'DYNAMIC_this_wednesday',
+        'created_at': 'DYNAMIC_this_wednesday',
+        'updated_at': 'DYNAMIC_this_wednesday'
+    },
+    {
+        'id': 7,
+        'application_id': 9,
+        'job_id': 1,
+        'job_title': '高级前端工程师',
+        'candidate_name': '钱十一',
+        'round': '二面',
+        'way': 'onsite',
+        'interview_time': 'DYNAMIC_last_month',
+        'interviewer': '张技术总监',
+        'location': '北京市朝阳区望京SOHO T3 20层会议室A',
+        'meeting_link': '',
+        'remark': '',
+        'status': 'completed',
+        'feedback_result': 'pass',
+        'feedback_comment': '全栈能力强，适合岗位',
+        'feedback_rating': 4,
+        'feedback_at': 'DYNAMIC_last_month',
+        'created_at': 'DYNAMIC_last_month',
+        'updated_at': 'DYNAMIC_last_month'
+    },
+    {
+        'id': 8,
+        'application_id': 3,
+        'job_id': 2,
+        'job_title': 'Python 后端开发工程师',
+        'candidate_name': '王五',
+        'round': '二面',
+        'way': 'onsite',
+        'interview_time': 'DYNAMIC_this_thursday',
+        'interviewer': '王技术经理',
+        'location': '上海市浦东新区陆家嘴',
+        'meeting_link': '',
+        'remark': '',
+        'status': 'completed',
+        'feedback_result': 'pass',
+        'feedback_comment': '表现不错，可以发 Offer',
+        'feedback_rating': 4,
+        'feedback_at': 'DYNAMIC_this_thursday',
+        'created_at': 'DYNAMIC_this_wednesday',
+        'updated_at': 'DYNAMIC_this_thursday'
     }
 ]
 
 INITIAL_OFFERS = [
+    {
+        'id': 1,
+        'application_id': 6,
+        'job_id': 1,
+        'job_title': '高级前端工程师',
+        'candidate_name': '周八',
+        'position': '高级前端工程师',
+        'salary_min': 28000,
+        'salary_max': 35000,
+        'join_date': 'DYNAMIC_offer_join_next_week',
+        'probation_months': 3,
+        'benefits': '六险一金、年终奖、股票期权、免费三餐、健身房',
+        'attachment_note': 'Offer letter 已发送至邮箱，请查收',
+        'remark': '表现优秀，薪资上浮 10%',
+        'status': 'accepted',
+        'sent_at': 'DYNAMIC_last_week',
+        'replied_at': 'DYNAMIC_today',
+        'reject_reason': '',
+        'withdraw_reason': '',
+        'created_at': 'DYNAMIC_last_week',
+        'updated_at': 'DYNAMIC_today'
+    },
+    {
+        'id': 2,
+        'application_id': 7,
+        'job_id': 3,
+        'job_title': '产品经理',
+        'candidate_name': '吴九',
+        'position': '高级产品经理',
+        'salary_min': 22000,
+        'salary_max': 28000,
+        'join_date': 'DYNAMIC_offer_join_next_month',
+        'probation_months': 3,
+        'benefits': '六险一金、年终奖、带薪年假、节日福利',
+        'attachment_note': 'Offer letter 已发送',
+        'remark': '',
+        'status': 'sent',
+        'sent_at': 'DYNAMIC_today',
+        'replied_at': '',
+        'reject_reason': '',
+        'withdraw_reason': '',
+        'created_at': 'DYNAMIC_this_tuesday',
+        'updated_at': 'DYNAMIC_today'
+    },
+    {
+        'id': 3,
+        'application_id': 3,
+        'job_id': 2,
+        'job_title': 'Python 后端开发工程师',
+        'candidate_name': '王五',
+        'position': 'Python 后端工程师',
+        'salary_min': 20000,
+        'salary_max': 26000,
+        'join_date': 'DYNAMIC_offer_join_next_week',
+        'probation_months': 3,
+        'benefits': '六险一金、年终奖、技术培训、弹性工作',
+        'attachment_note': 'Offer letter 已发送',
+        'remark': '',
+        'status': 'rejected',
+        'sent_at': 'DYNAMIC_this_wednesday',
+        'replied_at': 'DYNAMIC_this_thursday',
+        'reject_reason': '已接受其他公司 Offer',
+        'withdraw_reason': '',
+        'created_at': 'DYNAMIC_this_tuesday',
+        'updated_at': 'DYNAMIC_this_thursday'
+    },
+    {
+        'id': 4,
+        'application_id': 8,
+        'job_id': 2,
+        'job_title': 'Python 后端开发工程师',
+        'candidate_name': '郑十',
+        'position': 'Python 后端工程师',
+        'salary_min': 22000,
+        'salary_max': 28000,
+        'join_date': 'DYNAMIC_offer_join_today',
+        'probation_months': 3,
+        'benefits': '六险一金、年终奖、股票期权',
+        'attachment_note': '',
+        'remark': '候选人薪资期望较高，需要审批',
+        'status': 'draft',
+        'sent_at': '',
+        'replied_at': '',
+        'reject_reason': '',
+        'withdraw_reason': '',
+        'created_at': 'DYNAMIC_this_wednesday',
+        'updated_at': 'DYNAMIC_this_wednesday'
+    },
+    {
+        'id': 5,
+        'application_id': 9,
+        'job_id': 1,
+        'job_title': '高级前端工程师',
+        'candidate_name': '钱十一',
+        'position': '高级前端工程师',
+        'salary_min': 25000,
+        'salary_max': 32000,
+        'join_date': 'DYNAMIC_offer_join_next_month',
+        'probation_months': 3,
+        'benefits': '六险一金、年终奖、股票期权',
+        'attachment_note': 'Offer letter 已发送',
+        'remark': '',
+        'status': 'withdrawn',
+        'sent_at': 'DYNAMIC_last_month',
+        'replied_at': '',
+        'reject_reason': '',
+        'withdraw_reason': '岗位编制调整，暂停招聘',
+        'created_at': 'DYNAMIC_last_month',
+        'updated_at': 'DYNAMIC_last_week_friday'
+    },
+    {
+        'id': 6,
+        'application_id': 2,
+        'job_id': 1,
+        'job_title': '高级前端工程师',
+        'candidate_name': '李四',
+        'position': '前端工程师',
+        'salary_min': 18000,
+        'salary_max': 25000,
+        'join_date': 'DYNAMIC_offer_join_next_week',
+        'probation_months': 3,
+        'benefits': '六险一金、年终奖、免费三餐',
+        'attachment_note': 'Offer letter 已发送至邮箱',
+        'remark': '面试表现优秀，强烈推荐',
+        'status': 'sent',
+        'sent_at': 'DYNAMIC_today_afternoon',
+        'replied_at': '',
+        'reject_reason': '',
+        'withdraw_reason': '',
+        'created_at': 'DYNAMIC_this_tuesday',
+        'updated_at': 'DYNAMIC_today_afternoon'
+    },
+    {
+        'id': 7,
+        'application_id': 5,
+        'job_id': 2,
+        'job_title': 'Python 后端开发工程师',
+        'candidate_name': '孙七',
+        'position': '高级 Python 工程师',
+        'salary_min': 28000,
+        'salary_max': 35000,
+        'join_date': 'DYNAMIC_offer_join_next_month',
+        'probation_months': 3,
+        'benefits': '六险一金、年终奖、股票期权、带团队补贴',
+        'attachment_note': '',
+        'remark': '资深候选人，需总监审批薪资',
+        'status': 'draft',
+        'sent_at': '',
+        'replied_at': '',
+        'reject_reason': '',
+        'withdraw_reason': '',
+        'created_at': 'DYNAMIC_today',
+        'updated_at': 'DYNAMIC_today'
+    }
 ]
 
 
@@ -887,15 +1220,23 @@ class MockDB:
         offer = self.get_offer(offer_id)
         if not offer:
             return None, 'Offer 不存在'
+        if offer['status'] == 'accepted':
+            return None, '该 Offer 已接受，请勿重复操作'
+        if offer['status'] == 'rejected':
+            return None, '该 Offer 已拒绝，无法接受'
+        if offer['status'] == 'withdrawn':
+            return None, '该 Offer 已撤回，无法接受'
+        if offer['status'] == 'draft':
+            return None, '该 Offer 尚未发送，无法接受'
         if offer['status'] != 'sent':
-            return None, '只有已发送状态的 Offer 可以接受'
+            return None, f'当前状态为「{OFFER_STATUS_TEXT.get(offer["status"], offer["status"])}」，无法接受'
         offer['status'] = 'accepted'
         offer['replied_at'] = now_str()
         offer['updated_at'] = now_str()
         app = self.get_application(offer['application_id'])
         if app:
             app['status'] = 'hired'
-            sys_msg = '【系统消息】候选人已接受 Offer，入职日期：' + offer['join_date']
+            sys_msg = '【系统消息】候选人已接受 Offer，入职日期：' + offer['join_date'] + '，时间：' + offer['replied_at']
             self._add_system_message(offer['application_id'], sys_msg)
         return offer, None
 
@@ -903,8 +1244,16 @@ class MockDB:
         offer = self.get_offer(offer_id)
         if not offer:
             return None, 'Offer 不存在'
+        if offer['status'] == 'accepted':
+            return None, '该 Offer 已接受，无法拒绝'
+        if offer['status'] == 'rejected':
+            return None, '该 Offer 已拒绝，请勿重复操作'
+        if offer['status'] == 'withdrawn':
+            return None, '该 Offer 已撤回，无法拒绝'
         if offer['status'] != 'sent':
-            return None, '只有已发送状态的 Offer 可以拒绝'
+            return None, f'当前状态为「{OFFER_STATUS_TEXT.get(offer["status"], offer["status"])}」，无法拒绝'
+        if not reason or not reason.strip():
+            return None, '请填写拒绝原因'
         offer['status'] = 'rejected'
         offer['replied_at'] = now_str()
         offer['reject_reason'] = reason
@@ -915,6 +1264,7 @@ class MockDB:
             sys_msg = '【系统消息】候选人已拒绝 Offer'
             if reason:
                 sys_msg += f'，原因：{reason}'
+            sys_msg += f'，时间：{offer["replied_at"]}'
             self._add_system_message(offer['application_id'], sys_msg)
         return offer, None
 
@@ -922,8 +1272,16 @@ class MockDB:
         offer = self.get_offer(offer_id)
         if not offer:
             return None, 'Offer 不存在'
+        if offer['status'] == 'accepted':
+            return None, '该 Offer 已接受，无法撤回'
+        if offer['status'] == 'rejected':
+            return None, '该 Offer 已拒绝，无法撤回'
+        if offer['status'] == 'withdrawn':
+            return None, '该 Offer 已撤回，请勿重复操作'
         if offer['status'] not in ('draft', 'sent'):
-            return None, '只有草稿或已发送状态的 Offer 可以撤回'
+            return None, f'当前状态为「{OFFER_STATUS_TEXT.get(offer["status"], offer["status"])}」，无法撤回'
+        if not reason or not reason.strip():
+            return None, '请填写撤回原因'
         old_status = offer['status']
         offer['status'] = 'withdrawn'
         offer['withdraw_reason'] = reason
@@ -935,6 +1293,7 @@ class MockDB:
                 sys_msg = '【系统消息】Offer 已撤回'
                 if reason:
                     sys_msg += f'，原因：{reason}'
+                sys_msg += f'，时间：{offer["updated_at"]}'
                 self._add_system_message(offer['application_id'], sys_msg)
         return offer, None
 

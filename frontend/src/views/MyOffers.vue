@@ -59,6 +59,23 @@
         <el-alert v-if="currentOffer.status === 'sent'" type="primary" :closable="false" style="margin-bottom: 20px">
           您有一份待处理的 Offer，请及时回复。如有疑问请联系 HR。
         </el-alert>
+        <el-alert v-if="currentOffer.status === 'accepted'" type="success" :closable="false" style="margin-bottom: 20px" show-icon>
+          <template #title>您已接受该 Offer</template>
+          恭喜您！请按约定的入职日期准时报到，如有特殊情况请及时联系 HR。
+        </el-alert>
+        <el-alert v-if="currentOffer.status === 'rejected'" type="error" :closable="false" style="margin-bottom: 20px" show-icon>
+          <template #title>您已拒绝该 Offer</template>
+          <span v-if="currentOffer.reject_reason">拒绝原因：{{ currentOffer.reject_reason }}</span>
+          <span v-else>感谢您的关注，祝您求职顺利！</span>
+        </el-alert>
+        <el-alert v-if="currentOffer.status === 'withdrawn'" type="warning" :closable="false" style="margin-bottom: 20px" show-icon>
+          <template #title>该 Offer 已被撤回</template>
+          <span v-if="currentOffer.withdraw_reason">撤回原因：{{ currentOffer.withdraw_reason }}</span>
+          <span v-else>招聘方已撤回该 Offer，请关注其他职位机会。</span>
+        </el-alert>
+        <el-alert v-if="currentOffer.status === 'draft'" type="info" :closable="false" style="margin-bottom: 20px">
+          该 Offer 尚在草稿阶段，招聘方尚未正式发送。
+        </el-alert>
         <div class="detail-section">
           <h4>Offer 信息</h4>
           <el-descriptions :column="1" border>
