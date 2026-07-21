@@ -24,6 +24,14 @@ def get_stats():
     return success(db.get_stats())
 
 
+@app.route('/api/dashboard-stats', methods=['GET'])
+def get_dashboard_stats():
+    job_id = request.args.get('job_id', type=int)
+    start_date = request.args.get('start_date')
+    end_date = request.args.get('end_date')
+    return success(db.get_dashboard_stats(job_id=job_id, start_date=start_date, end_date=end_date))
+
+
 @app.route('/api/status-meta', methods=['GET'])
 def get_status_meta():
     return success(db.get_status_meta())

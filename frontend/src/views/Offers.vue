@@ -11,18 +11,19 @@
     <el-card class="filter-card">
       <el-form :inline="true" :model="filters" @submit.prevent>
         <el-form-item label="职位">
-          <el-select v-model="filters.job_id" placeholder="全部职位" clearable style="width: 200px" @change="fetchList">
+          <el-select v-model="filters.job_id" placeholder="全部职位" clearable style="width: 200px" @change="onFilterChange">
             <el-option v-for="job in jobs" :key="job.id" :label="job.title" :value="job.id" />
           </el-select>
         </el-form-item>
         <el-form-item label="状态">
-          <el-radio-group v-model="filters.status" @change="fetchList">
+          <el-radio-group v-model="filters.status" @change="onFilterChange">
             <el-radio-button value="">全部</el-radio-button>
             <el-radio-button value="draft">草稿</el-radio-button>
             <el-radio-button value="sent">已发送</el-radio-button>
             <el-radio-button value="accepted">已接受</el-radio-button>
             <el-radio-button value="rejected">已拒绝</el-radio-button>
             <el-radio-button value="withdrawn">已撤回</el-radio-button>
+            <el-radio-button value="processed">已处理</el-radio-button>
           </el-radio-group>
         </el-form-item>
         <el-form-item>
@@ -65,7 +66,7 @@
           </template>
         </el-table-column>
       </el-table>
-      <el-empty v-if="!loading && offers.length === 0" description="暂无 Offer 记录" />
+      <el-empty v-if="!loading && offers.length === 0" :description="emptyText" />
     </el-card>
 
     <el-dialog
@@ -76,13 +77,12 @@
     >
       <el-form :model="form" :rules="rules" ref="formRef" label-width="100px">
         <el-form-item label="候选人" v-if="!isEdit" prop="application_id">
-          <el-select v-model="form.application_id" placeholder="选择候选人" filterable style="width: 100%">
+          <el-select v-model="form.application_id" placeholder="选择候选人" filterable style="width: 100%" no-data-text="暂无可创建 Offer 的候选人">
             <el-option
               v-for="app in candidateOptions"
               :key="app.id"
               :label="`${app.candidate_name} - ${app.job_title}（${STATUS_TEXT[app.status]}）`"
               :value="app.id"
-              :disabled="!canCreateOffer(app)"
             />
           </el-select>
           <div class="form-tip">仅显示有通过面试反馈的候选人</div>
@@ -182,12 +182,17 @@
 </template>
 
 <script setup>
-import { ref, reactive, onMounted, inject } from 'vue'
+import { ref, reactive, onMounted, inject, watch, computed } from 'vue'
+import { useRoute, useRouter } from 'vue-router'
 import { Plus } from '@element-plus/icons-vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { api, STATUS_TEXT, OFFER_STATUS_TEXT, OFFER_STATUS_TYPE } from '../api'
 
-const { refreshStats } = inject('appActions', { refreshStats: () => {} })
+const route = useRoute()
+const router = useRouter()
+const refreshStats = inject('refreshStats', () => {})
+const refreshAll = inject('refreshAll', () => {})
+const refreshDashboardStats = inject('refreshDashboardStats', () => {})
 
 const loading = ref(false)
 const offers = ref([])
@@ -254,22 +259,84 @@ const fetchApplications = async () => {
   } catch (e) {}
 }
 
+const emptyText = computed(() => {
+  const map = {
+    '': '暂无 Offer 记录',
+    'draft': '暂无草稿状态的 Offer',
+    'sent': '暂无已发送的 Offer',
+    'accepted': '暂无已接受的 Offer',
+    'rejected': '暂无已拒绝的 Offer',
+    'withdrawn': '暂无已撤回的 Offer',
+    'processed': '暂无已处理的 Offer'
+  }
+  return map[filters.status] || '暂无 Offer 记录'
+})
+
 const fetchList = async () => {
   loading.value = true
   try {
     const params = {}
     if (filters.job_id) params.job_id = filters.job_id
-    if (filters.status) params.status = filters.status
-    offers.value = await api.getOffers(params)
+    let allOffers = await api.getOffers(params)
+    if (filters.status === 'processed') {
+      offers.value = allOffers.filter(o => 
+        o.status === 'accepted' || o.status === 'rejected' || o.status === 'withdrawn'
+      )
+    } else if (filters.status) {
+      offers.value = allOffers.filter(o => o.status === filters.status)
+    } else {
+      offers.value = allOffers
+    }
   } catch (e) {}
   loading.value = false
+}
+
+const onFilterChange = () => {
+  router.replace({
+    path: '/offers',
+    query: {
+      ...route.query,
+      status: filters.status || undefined,
+      job_id: filters.job_id || undefined
+    }
+  })
+  fetchList()
 }
 
 const resetFilters = () => {
   filters.job_id = ''
   filters.status = ''
+  router.replace({ path: '/offers' })
   fetchList()
 }
+
+const initFromRoute = () => {
+  const status = route.query.status
+  const job_id = route.query.job_id
+  if (status && typeof status === 'string') {
+    filters.status = status
+  }
+  if (job_id && typeof job_id === 'string') {
+    filters.job_id = job_id
+  }
+}
+
+watch(() => route.query, () => {
+  const newStatus = route.query.status
+  const newJobId = route.query.job_id
+  let changed = false
+  if (newStatus !== undefined && newStatus !== filters.status) {
+    filters.status = newStatus
+    changed = true
+  }
+  if (newJobId !== undefined && newJobId !== filters.job_id) {
+    filters.job_id = newJobId
+    changed = true
+  }
+  if (changed) {
+    fetchList()
+  }
+})
 
 const resetForm = () => {
   form.application_id = null
@@ -352,6 +419,7 @@ const handleSave = async () => {
     dialogVisible.value = false
     fetchList()
     refreshStats()
+    refreshDashboardStats()
   } catch (e) {
     ElMessage.error(e.message || '操作失败')
   }
@@ -368,6 +436,7 @@ const handleSend = async (row) => {
     ElMessage.success('Offer 已发送')
     fetchList()
     refreshStats()
+    refreshDashboardStats()
   } catch (e) {
     if (e !== 'cancel') ElMessage.error(e.message || '发送失败')
   }
@@ -390,6 +459,7 @@ const handleWithdraw = async (row) => {
     ElMessage.success('Offer 已撤回')
     fetchList()
     refreshStats()
+    refreshDashboardStats()
   } catch (e) {
     if (e !== 'cancel') ElMessage.error(e.message || '撤回失败')
   }
@@ -397,6 +467,7 @@ const handleWithdraw = async (row) => {
 
 onMounted(() => {
   fetchJobs()
+  initFromRoute()
   fetchList()
 })
 </script>

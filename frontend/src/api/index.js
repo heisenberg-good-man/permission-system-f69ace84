@@ -89,6 +89,7 @@ export const OFFER_STATUS_TYPE = {
 
 export const api = {
   getStats: () => request.get('/stats'),
+  getDashboardStats: (params) => request.get('/dashboard-stats', { params }),
   getStatusMeta: () => request.get('/status-meta'),
 
   getJobs: (status) => request.get('/jobs', { params: { status } }),

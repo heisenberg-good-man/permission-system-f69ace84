@@ -210,6 +210,7 @@ const route = useRoute()
 const router = useRouter()
 const role = inject('role')
 const refreshStats = inject('refreshStats')
+const refreshDashboardStats = inject('refreshDashboardStats')
 const STATUS_TEXT = inject('STATUS_TEXT')
 const STATUS_TYPE = inject('STATUS_TYPE')
 
@@ -287,6 +288,7 @@ const submitApply = async () => {
       resume: ''
     }
     refreshStats()
+    if (refreshDashboardStats) refreshDashboardStats()
   } catch (e) {
     ElMessage.error(e.message || '投递失败')
   } finally {
@@ -301,6 +303,7 @@ const toggleStatus = async () => {
     job.value.status = newStatus
     ElMessage.success(newStatus === 'open' ? '已开启招聘' : '已关闭招聘')
     refreshStats()
+    if (refreshDashboardStats) refreshDashboardStats()
   } catch (e) {
     ElMessage.error(e.message || '操作失败')
   }
@@ -312,6 +315,7 @@ const changeAppStatus = async (row, newStatus) => {
     row.status = newStatus
     ElMessage.success(`状态已更新为「${STATUS_TEXT[newStatus]}」`)
     refreshStats()
+    if (refreshDashboardStats) refreshDashboardStats()
   } catch (e) {
     ElMessage.error(e.message || '状态更新失败')
   }

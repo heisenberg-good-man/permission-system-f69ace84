@@ -91,16 +91,24 @@
           </el-select>
         </el-form-item>
         <el-form-item label="候选人" prop="application_id" v-if="!isEdit">
-          <el-select v-model="form.application_id" placeholder="请选择候选人" filterable @change="onAppChange" style="width: 100%">
+          <el-select
+            v-model="form.application_id"
+            placeholder="请选择候选人"
+            filterable
+            @change="onAppChange"
+            style="width: 100%"
+            :no-data-text="form.job_id ? '该职位下暂无可安排面试的投递' : '暂无可安排面试的投递'"
+          >
             <el-option
               v-for="app in filteredCandidateOptions"
               :key="app.id"
               :label="`${app.candidate_name} - ${app.job_title}（${STATUS_TEXT[app.status]}）`"
               :value="app.id"
-              :disabled="app.status !== 'screening' && app.status !== 'communicating'"
             />
           </el-select>
-          <div class="form-tip">仅显示「待沟通」或「沟通中」状态的投递</div>
+          <div class="form-tip">
+            {{ form.job_id ? '仅显示当前职位下「待沟通」或「沟通中」的投递' : '仅显示「待沟通」或「沟通中」状态的投递，可先选择职位缩小范围' }}
+          </div>
         </el-form-item>
         <el-form-item label="候选人" v-else>
           <span>{{ currentInterview?.candidate_name }}</span>
@@ -250,6 +258,7 @@ import { api, STATUS_TEXT, INTERVIEW_STATUS_TEXT, INTERVIEW_STATUS_TYPE, INTERVI
 const router = useRouter()
 const refreshStats = inject('refreshStats')
 const refreshAll = inject('refreshAll')
+const refreshDashboardStats = inject('refreshDashboardStats')
 
 const loading = ref(false)
 const interviews = ref([])
@@ -400,6 +409,21 @@ const submitForm = async () => {
   if (!formRef.value) return
   await formRef.value.validate(async (valid) => {
     if (!valid) return
+    if (!isEdit.value) {
+      if (!form.application_id) {
+        ElMessage.warning('请选择候选人')
+        return
+      }
+      const selectedApp = candidateOptions.value.find(a => a.id === form.application_id)
+      if (!selectedApp) {
+        ElMessage.warning('请选择有效的候选人投递记录')
+        return
+      }
+      if (form.job_id && selectedApp.job_id !== form.job_id) {
+        ElMessage.warning('所选候选人与职位不匹配，请重新选择')
+        return
+      }
+    }
     submitting.value = true
     try {
       if (isEdit.value) {
@@ -429,6 +453,7 @@ const submitForm = async () => {
       fetchList()
       fetchApplications()
       refreshStats()
+      if (refreshDashboardStats) refreshDashboardStats()
     } catch (e) {
       ElMessage.error(e.message || '操作失败')
     } finally {
@@ -453,6 +478,7 @@ const handleCancel = async (row) => {
     ElMessage.success('已取消面试')
     fetchList()
     refreshStats()
+    if (refreshDashboardStats) refreshDashboardStats()
     if (detailVisible.value && detailData.value?.id === row.id) {
       detailData.value.status = 'cancelled'
     }
@@ -502,6 +528,7 @@ const submitFeedback = async () => {
     feedbackDialogVisible.value = false
     fetchList()
     refreshStats()
+    if (refreshDashboardStats) refreshDashboardStats()
     if (detailVisible.value && detailData.value?.id === currentFeedback.value.id) {
       detailData.value = { ...detailData.value, ...feedbackForm.value, status: 'completed' }
     }

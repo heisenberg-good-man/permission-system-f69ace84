@@ -96,7 +96,7 @@
 </template>
 
 <script setup>
-import { ref, computed, onMounted, provide, watch } from 'vue'
+import { ref, computed, onMounted, provide, watch, reactive } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { Loading } from '@element-plus/icons-vue'
@@ -106,6 +106,7 @@ const route = useRoute()
 const router = useRouter()
 const role = ref(localStorage.getItem('role') || 'candidate')
 const stats = ref({})
+const dashboardStats = reactive({ data: {} })
 const dataVersion = ref(0)
 const appReady = ref(false)
 const currentCandidateName = ref('李四')
@@ -147,6 +148,14 @@ const fetchStats = async () => {
 const refreshAll = async () => {
   dataVersion.value++
   await fetchStats()
+  await refreshDashboardStats()
+}
+
+const refreshDashboardStats = async () => {
+  try {
+    const data = await api.getDashboardStats()
+    Object.assign(dashboardStats.data, data)
+  } catch (e) {}
 }
 
 const onRoleChange = () => {
@@ -179,12 +188,15 @@ const initData = async () => {
     await api.resetData()
   } catch (e) {}
   await fetchStats()
+  await refreshDashboardStats()
   dataVersion.value++
   appReady.value = true
 }
 
 provide('refreshStats', fetchStats)
 provide('refreshAll', refreshAll)
+provide('dashboardStats', dashboardStats)
+provide('refreshDashboardStats', refreshDashboardStats)
 provide('role', role)
 provide('currentCandidateName', currentCandidateName)
 provide('STATUS_TEXT', STATUS_TEXT)

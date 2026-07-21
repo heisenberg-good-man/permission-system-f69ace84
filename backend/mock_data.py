@@ -436,6 +436,97 @@ class MockDB:
             'status_text': STATUS_TEXT
         }
 
+    def get_dashboard_stats(self, job_id=None, start_date=None, end_date=None):
+        from datetime import datetime, timedelta
+        now = datetime.now()
+        today_str = now.strftime('%Y-%m-%d')
+        week_start = now - timedelta(days=now.weekday())
+        week_start_str = week_start.strftime('%Y-%m-%d')
+
+        jobs = self.jobs
+        if job_id:
+            jobs = [j for j in jobs if j['id'] == job_id]
+        job_ids = [j['id'] for j in jobs]
+
+        apps = self.applications
+        if job_id:
+            apps = [a for a in apps if a['job_id'] == job_id]
+
+        interviews = self.interviews
+        if job_id:
+            interviews = [i for i in interviews if i['job_id'] == job_id]
+
+        offers = self.offers
+        if job_id:
+            offers = [o for o in offers if o['job_id'] == job_id]
+
+        total_jobs = len(jobs)
+        open_jobs = len([j for j in jobs if j['status'] == 'open'])
+
+        total_applications = len(apps)
+        pending = len([a for a in apps if a['status'] == 'pending'])
+        screening = len([a for a in apps if a['status'] == 'screening'])
+        communicating = len([a for a in apps if a['status'] == 'communicating'])
+        rejected = len([a for a in apps if a['status'] == 'rejected'])
+        hired = len([a for a in apps if a['status'] == 'hired'])
+        active_applications = pending + screening + communicating
+
+        scheduled_interviews = len([i for i in interviews if i['status'] == 'scheduled'])
+        completed_interviews = len([i for i in interviews if i['status'] == 'completed'])
+        cancelled_interviews = len([i for i in interviews if i['status'] == 'cancelled'])
+        total_interviews = len(interviews)
+
+        today_interviews = len([i for i in interviews if i['interview_time'].startswith(today_str)])
+        week_interviews = len([i for i in interviews if i['interview_time'] >= week_start_str])
+
+        draft_offers = len([o for o in offers if o['status'] == 'draft'])
+        sent_offers = len([o for o in offers if o['status'] == 'sent'])
+        accepted_offers = len([o for o in offers if o['status'] == 'accepted'])
+        rejected_offers = len([o for o in offers if o['status'] == 'rejected'])
+        withdrawn_offers = len([o for o in offers if o['status'] == 'withdrawn'])
+        processed_offers = accepted_offers + rejected_offers + withdrawn_offers
+        total_offers = len(offers)
+
+        conversion = {
+            'applications': total_applications,
+            'to_interview': total_interviews,
+            'interview_pass_rate': round(completed_interviews / total_interviews * 100, 1) if total_interviews > 0 else 0,
+            'to_offer': total_offers,
+            'offer_accept_rate': round(accepted_offers / sent_offers * 100, 1) if sent_offers > 0 else 0,
+            'to_hire': hired
+        }
+
+        job_list = [{'id': j['id'], 'title': j['title'], 'status': j['status']} for j in jobs]
+
+        return {
+            'total_jobs': total_jobs,
+            'open_jobs': open_jobs,
+            'closed_jobs': total_jobs - open_jobs,
+            'total_applications': total_applications,
+            'active_applications': active_applications,
+            'pending_applications': pending,
+            'screening': screening,
+            'communicating': communicating,
+            'rejected': rejected,
+            'hired': hired,
+            'total_interviews': total_interviews,
+            'scheduled_interviews': scheduled_interviews,
+            'completed_interviews': completed_interviews,
+            'cancelled_interviews': cancelled_interviews,
+            'today_interviews': today_interviews,
+            'week_interviews': week_interviews,
+            'total_offers': total_offers,
+            'draft_offers': draft_offers,
+            'sent_offers': sent_offers,
+            'accepted_offers': accepted_offers,
+            'rejected_offers': rejected_offers,
+            'withdrawn_offers': withdrawn_offers,
+            'processed_offers': processed_offers,
+            'conversion': conversion,
+            'job_list': job_list,
+            'status_text': STATUS_TEXT
+        }
+
     def get_interview_meta(self):
         return {
             'status_list': list(INTERVIEW_STATUS),
