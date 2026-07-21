@@ -101,6 +101,7 @@ import { useRoute, useRouter } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { Loading } from '@element-plus/icons-vue'
 import { api, STATUS_TEXT, STATUS_TYPE, INTERVIEW_STATUS_TEXT, INTERVIEW_STATUS_TYPE, INTERVIEW_WAY_TEXT, INTERVIEW_ROUNDS } from './api'
+import request from './api'
 
 const route = useRoute()
 const router = useRouter()
@@ -160,6 +161,9 @@ const refreshDashboardStats = async () => {
 
 const onRoleChange = () => {
   localStorage.setItem('role', role.value)
+  localStorage.setItem('candidateName', currentCandidateName.value)
+  request.defaults.headers.common['x-role'] = role.value
+  request.defaults.headers.common['x-candidate-name'] = currentCandidateName.value
   if (role.value === 'recruiter') {
     router.push('/job-manage')
   } else {
@@ -184,6 +188,8 @@ const handleReset = async () => {
 
 const initData = async () => {
   if (appReady.value) return
+  request.defaults.headers.common['x-role'] = role.value
+  request.defaults.headers.common['x-candidate-name'] = currentCandidateName.value
   try {
     await api.resetData()
   } catch (e) {}

@@ -19,6 +19,23 @@ def fail(message, code=4000):
     return jsonify({'code': code, 'message': message, 'data': None})
 
 
+def get_current_role():
+    return request.args.get('role', request.headers.get('x-role', 'recruiter'))
+
+
+def get_current_candidate_name():
+    return request.args.get('candidate_name', request.headers.get('x-candidate-name', ''))
+
+
+def check_offer_ownership(offer):
+    role = get_current_role()
+    if role == 'candidate':
+        candidate_name = get_current_candidate_name()
+        if offer['candidate_name'] != candidate_name:
+            return False, '无权操作他人的 Offer'
+    return True, None
+
+
 @app.route('/api/stats', methods=['GET'])
 def get_stats():
     return success(db.get_stats())
@@ -237,10 +254,14 @@ def list_offers():
     job_id = request.args.get('job_id', type=int)
     status = request.args.get('status')
     application_id = request.args.get('application_id', type=int)
+    start_date = request.args.get('start_date')
+    end_date = request.args.get('end_date')
     offers = db.get_offers(
         application_id=application_id,
         job_id=job_id,
-        status=status
+        status=status,
+        start_date=start_date,
+        end_date=end_date
     )
     return success(offers)
 
@@ -287,6 +308,12 @@ def send_offer(offer_id):
 
 @app.route('/api/offers/<int:offer_id>/accept', methods=['POST'])
 def accept_offer(offer_id):
+    offer = db.get_offer(offer_id)
+    if not offer:
+        return fail('Offer 不存在', 4043)
+    allowed, err_msg = check_offer_ownership(offer)
+    if not allowed:
+        return fail(err_msg, 4031)
     offer, err = db.accept_offer(offer_id)
     if err:
         return fail(err, 4013)
@@ -295,6 +322,12 @@ def accept_offer(offer_id):
 
 @app.route('/api/offers/<int:offer_id>/reject', methods=['POST'])
 def reject_offer(offer_id):
+    offer = db.get_offer(offer_id)
+    if not offer:
+        return fail('Offer 不存在', 4043)
+    allowed, err_msg = check_offer_ownership(offer)
+    if not allowed:
+        return fail(err_msg, 4031)
     data = request.get_json() or {}
     reason = data.get('reason', '')
     offer, err = db.reject_offer(offer_id, reason)
@@ -305,6 +338,12 @@ def reject_offer(offer_id):
 
 @app.route('/api/offers/<int:offer_id>/withdraw', methods=['POST'])
 def withdraw_offer(offer_id):
+    offer = db.get_offer(offer_id)
+    if not offer:
+        return fail('Offer 不存在', 4043)
+    role = get_current_role()
+    if role == 'candidate':
+        return fail('应聘方无权撤回 Offer', 4032)
     data = request.get_json() or {}
     reason = data.get('reason', '')
     offer, err = db.withdraw_offer(offer_id, reason)

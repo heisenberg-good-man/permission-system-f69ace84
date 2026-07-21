@@ -6,6 +6,22 @@ const request = axios.create({
   timeout: 10000
 })
 
+request.interceptors.request.use(
+  config => {
+    const role = localStorage.getItem('role') || 'candidate'
+    const candidateName = localStorage.getItem('candidateName') || '李四'
+    if (!config.params) config.params = {}
+    config.params.role = role
+    if (role === 'candidate') {
+      config.params.candidate_name = candidateName
+    }
+    return config
+  },
+  error => {
+    return Promise.reject(error)
+  }
+)
+
 request.interceptors.response.use(
   response => {
     const res = response.data

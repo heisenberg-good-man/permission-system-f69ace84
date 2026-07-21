@@ -26,6 +26,13 @@
             <el-radio-button value="processed">已处理</el-radio-button>
           </el-radio-group>
         </el-form-item>
+        <el-form-item label="时间范围">
+          <el-radio-group v-model="filters.timeRange" @change="onFilterChange">
+            <el-radio-button value="all">全部</el-radio-button>
+            <el-radio-button value="today">今日</el-radio-button>
+            <el-radio-button value="week">本周</el-radio-button>
+          </el-radio-group>
+        </el-form-item>
         <el-form-item>
           <el-button @click="resetFilters">重置</el-button>
         </el-form-item>
@@ -253,6 +260,7 @@ import { useRoute, useRouter } from 'vue-router'
 import { Plus } from '@element-plus/icons-vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { api, STATUS_TEXT, OFFER_STATUS_TEXT, OFFER_STATUS_TYPE } from '../api'
+import { getDateRange } from '../utils/date'
 
 const route = useRoute()
 const router = useRouter()
@@ -267,7 +275,8 @@ const applications = ref([])
 
 const filters = reactive({
   job_id: '',
-  status: ''
+  status: '',
+  timeRange: 'all'
 })
 
 const dialogVisible = ref(false)
@@ -364,6 +373,9 @@ const fetchList = async () => {
   try {
     const params = {}
     if (filters.job_id) params.job_id = filters.job_id
+    const { start_date, end_date } = getDateRange(filters.timeRange)
+    if (start_date) params.start_date = start_date
+    if (end_date) params.end_date = end_date
     let list = await api.getOffers(params)
     allOffers.value = list
     if (filters.status === 'processed') {
@@ -388,6 +400,7 @@ const onFilterChange = () => {
   const query = {}
   if (filters.status) query.status = filters.status
   if (filters.job_id) query.job_id = filters.job_id
+  if (filters.timeRange && filters.timeRange !== 'all') query.timeRange = filters.timeRange
   router.replace({ path: '/offers', query })
   fetchList()
 }
@@ -395,6 +408,7 @@ const onFilterChange = () => {
 const resetFilters = () => {
   filters.job_id = ''
   filters.status = ''
+  filters.timeRange = 'all'
   router.replace({ path: '/offers' })
   fetchList()
 }
@@ -402,11 +416,13 @@ const resetFilters = () => {
 const initFromRoute = () => {
   filters.status = route.query.status || ''
   filters.job_id = route.query.job_id || ''
+  filters.timeRange = route.query.timeRange || 'all'
 }
 
 watch(() => route.query, (newQuery) => {
   const newStatus = newQuery.status || ''
   const newJobId = newQuery.job_id || ''
+  const newTimeRange = newQuery.timeRange || 'all'
   let changed = false
   if (newStatus !== filters.status) {
     filters.status = newStatus
@@ -414,6 +430,10 @@ watch(() => route.query, (newQuery) => {
   }
   if (newJobId !== filters.job_id) {
     filters.job_id = newJobId
+    changed = true
+  }
+  if (newTimeRange !== filters.timeRange) {
+    filters.timeRange = newTimeRange
     changed = true
   }
   if (changed) {

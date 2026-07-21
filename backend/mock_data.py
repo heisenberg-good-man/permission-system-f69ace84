@@ -1128,7 +1128,7 @@ class MockDB:
                     app['status'] = 'rejected'
         return interview, None
 
-    def get_offers(self, application_id=None, job_id=None, status=None):
+    def get_offers(self, application_id=None, job_id=None, status=None, start_date=None, end_date=None):
         result = self.offers
         if application_id:
             result = [o for o in result if o['application_id'] == application_id]
@@ -1136,6 +1136,10 @@ class MockDB:
             result = [o for o in result if o['job_id'] == job_id]
         if status:
             result = [o for o in result if o['status'] == status]
+        if start_date:
+            result = [o for o in result if o['created_at'][:10] >= start_date]
+        if end_date:
+            result = [o for o in result if o['created_at'][:10] <= end_date]
         result = sorted(result, key=lambda x: x['created_at'], reverse=True)
         return result
 
@@ -1260,7 +1264,7 @@ class MockDB:
         offer['updated_at'] = now_str()
         app = self.get_application(offer['application_id'])
         if app:
-            app['status'] = 'communicating'
+            app['status'] = 'rejected'
             sys_msg = '【系统消息】候选人已拒绝 Offer'
             if reason:
                 sys_msg += f'，原因：{reason}'
@@ -1286,15 +1290,19 @@ class MockDB:
         offer['status'] = 'withdrawn'
         offer['withdraw_reason'] = reason
         offer['updated_at'] = now_str()
-        if old_status == 'sent':
-            app = self.get_application(offer['application_id'])
-            if app:
-                app['status'] = 'communicating'
-                sys_msg = '【系统消息】Offer 已撤回'
-                if reason:
-                    sys_msg += f'，原因：{reason}'
-                sys_msg += f'，时间：{offer["updated_at"]}'
-                self._add_system_message(offer['application_id'], sys_msg)
+        app = self.get_application(offer['application_id'])
+        if app and old_status == 'sent':
+            app['status'] = 'communicating'
+        if app:
+            sys_msg = '【系统消息】'
+            if old_status == 'draft':
+                sys_msg += '草稿 Offer 已撤回'
+            else:
+                sys_msg += 'Offer 已撤回'
+            if reason:
+                sys_msg += f'，原因：{reason}'
+            sys_msg += f'，时间：{offer["updated_at"]}'
+            self._add_system_message(offer['application_id'], sys_msg)
         return offer, None
 
     def get_offer_meta(self):
