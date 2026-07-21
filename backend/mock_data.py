@@ -74,6 +74,29 @@ OFFER_STATUS_TYPE = {
     'withdrawn': 'warning'
 }
 
+def _gen_dates():
+    from datetime import datetime, timedelta
+    now = datetime.now()
+    today = now.strftime('%Y-%m-%d')
+    monday = now - timedelta(days=now.weekday())
+    tuesday = monday + timedelta(days=1)
+    two_weeks_ago = monday - timedelta(days=7)
+    last_month = now - timedelta(days=30)
+    return {
+        'today': today + ' 10:00:00',
+        'today_afternoon': today + ' 14:30:00',
+        'this_tuesday': tuesday.strftime('%Y-%m-%d') + ' 09:00:00',
+        'this_week': monday.strftime('%Y-%m-%d') + ' 11:00:00',
+        'last_week': two_weeks_ago.strftime('%Y-%m-%d') + ' 10:00:00',
+        'last_month': last_month.strftime('%Y-%m-%d') + ' 15:00:00',
+        'today_interview': today + ' 15:00:00',
+        'tomorrow_interview': (now + timedelta(days=1)).strftime('%Y-%m-%d') + ' 10:00:00',
+        'yesterday_interview': (now - timedelta(days=1)).strftime('%Y-%m-%d') + ' 14:00:00',
+        'week_interview': tuesday.strftime('%Y-%m-%d') + ' 11:00:00',
+        'old_interview': two_weeks_ago.strftime('%Y-%m-%d') + ' 10:00:00',
+    }
+
+
 INITIAL_JOBS = [
     {
         'id': 1,
@@ -88,7 +111,7 @@ INITIAL_JOBS = [
         'description': '负责公司核心产品的前端架构设计与开发，参与技术选型与性能优化。',
         'requirements': '1. 精通 Vue/React 等主流框架\n2. 熟悉 TypeScript、工程化\n3. 有大型项目经验优先',
         'status': 'open',
-        'created_at': '2026-07-10 09:30:00',
+        'created_at': 'DYNAMIC_last_month',
         'hr_id': 1,
         'hr_name': '李经理'
     },
@@ -105,7 +128,7 @@ INITIAL_JOBS = [
         'description': '负责后端服务的设计与开发，保障系统稳定性与高性能。',
         'requirements': '1. 熟悉 Python、Flask/Django\n2. 熟悉 MySQL、Redis\n3. 有微服务经验优先',
         'status': 'open',
-        'created_at': '2026-07-12 14:20:00',
+        'created_at': 'DYNAMIC_this_week',
         'hr_id': 1,
         'hr_name': '李经理'
     },
@@ -122,7 +145,7 @@ INITIAL_JOBS = [
         'description': '负责 SaaS 产品的需求调研、产品设计与迭代推进。',
         'requirements': '1. 有 B 端产品经验\n2. 优秀的文档与沟通能力\n3. 熟悉敏捷开发流程',
         'status': 'open',
-        'created_at': '2026-07-15 10:00:00',
+        'created_at': 'DYNAMIC_today',
         'hr_id': 2,
         'hr_name': '王主管'
     },
@@ -139,7 +162,7 @@ INITIAL_JOBS = [
         'description': '负责公司产品界面设计与视觉规范制定。',
         'requirements': '1. 熟练使用 Figma/Sketch\n2. 有完整作品集\n3. 对用户体验有深入理解',
         'status': 'closed',
-        'created_at': '2026-07-08 16:45:00',
+        'created_at': 'DYNAMIC_last_week',
         'hr_id': 2,
         'hr_name': '王主管'
     }
@@ -157,7 +180,7 @@ INITIAL_APPLICATIONS = [
         'experience': '4年',
         'resume': '5年前端开发经验，精通 Vue 全家桶，主导过 2 个大型项目。\n\n工作经历：\n- 2022-至今 某互联网公司 高级前端工程师\n- 2019-2022 某科技公司 前端开发工程师\n\n技能：Vue3, TypeScript, Vite, Node.js',
         'status': 'pending',
-        'applied_at': '2026-07-13 11:20:00'
+        'applied_at': 'DYNAMIC_today'
     },
     {
         'id': 2,
@@ -170,7 +193,7 @@ INITIAL_APPLICATIONS = [
         'experience': '3年',
         'resume': '硕士学历，3年 React 开发经验，熟悉前端性能优化。\n\n项目经验：\n- 主导某电商后台系统重构，首屏加载速度提升 60%\n- 搭建前端监控系统，支持错误追踪与性能指标采集\n\n技能：React, TypeScript, Webpack, 性能优化',
         'status': 'communicating',
-        'applied_at': '2026-07-14 09:10:00'
+        'applied_at': 'DYNAMIC_this_week'
     },
     {
         'id': 3,
@@ -183,7 +206,7 @@ INITIAL_APPLICATIONS = [
         'experience': '2年',
         'resume': '2年 Python 后端经验，熟悉 Flask + MySQL，有电商项目经验。\n\n教育背景：\n- 2019-2023 某某大学 计算机科学与技术 本科\n\n技能：Python, Flask, MySQL, Redis, Docker',
         'status': 'screening',
-        'applied_at': '2026-07-16 15:30:00'
+        'applied_at': 'DYNAMIC_last_week'
     },
     {
         'id': 4,
@@ -196,7 +219,20 @@ INITIAL_APPLICATIONS = [
         'experience': '4年',
         'resume': '4年 B 端产品经验，负责过 CRM 系统从 0 到 1。',
         'status': 'rejected',
-        'applied_at': '2026-07-11 10:00:00'
+        'applied_at': 'DYNAMIC_last_month'
+    },
+    {
+        'id': 5,
+        'job_id': 2,
+        'job_title': 'Python 后端开发工程师',
+        'candidate_name': '孙七',
+        'candidate_phone': '13800138005',
+        'candidate_email': 'sunqi@example.com',
+        'education': '本科',
+        'experience': '5年',
+        'resume': '5年 Python 后端经验，精通 Django + PostgreSQL，带过 3 人团队。',
+        'status': 'pending',
+        'applied_at': 'DYNAMIC_today_afternoon'
     }
 ]
 
@@ -207,7 +243,7 @@ INITIAL_MESSAGES = [
         'sender': 'recruiter',
         'sender_name': '李经理',
         'content': '您好，您的简历我们已经看过了，想约您下周一上午 10 点面试，方便吗？',
-        'created_at': '2026-07-15 10:30:00'
+        'created_at': 'DYNAMIC_this_tuesday'
     },
     {
         'id': 2,
@@ -215,7 +251,7 @@ INITIAL_MESSAGES = [
         'sender': 'candidate',
         'sender_name': '李四',
         'content': '好的，没问题，时间可以的。',
-        'created_at': '2026-07-15 11:00:00'
+        'created_at': 'DYNAMIC_this_tuesday'
     },
     {
         'id': 3,
@@ -223,7 +259,7 @@ INITIAL_MESSAGES = [
         'sender': 'recruiter',
         'sender_name': '李经理',
         'content': '好的，那我们稍后把面试邀请发到您邮箱。',
-        'created_at': '2026-07-15 11:15:00'
+        'created_at': 'DYNAMIC_this_tuesday'
     }
 ]
 
@@ -236,7 +272,7 @@ INITIAL_INTERVIEWS = [
         'candidate_name': '李四',
         'round': '一面',
         'way': 'onsite',
-        'interview_time': '2026-07-22 10:00:00',
+        'interview_time': 'DYNAMIC_today_interview',
         'interviewer': '张技术总监',
         'location': '北京市朝阳区望京SOHO T3 20层会议室A',
         'meeting_link': '',
@@ -246,8 +282,50 @@ INITIAL_INTERVIEWS = [
         'feedback_comment': '',
         'feedback_rating': 0,
         'feedback_at': '',
-        'created_at': '2026-07-15 14:00:00',
-        'updated_at': '2026-07-15 14:00:00'
+        'created_at': 'DYNAMIC_this_tuesday',
+        'updated_at': 'DYNAMIC_this_tuesday'
+    },
+    {
+        'id': 2,
+        'application_id': 3,
+        'job_id': 2,
+        'job_title': 'Python 后端开发工程师',
+        'candidate_name': '王五',
+        'round': '初筛',
+        'way': 'phone',
+        'interview_time': 'DYNAMIC_week_interview',
+        'interviewer': '李经理',
+        'location': '',
+        'meeting_link': '',
+        'remark': '电话初筛，30分钟',
+        'status': 'completed',
+        'feedback_result': 'pass',
+        'feedback_comment': '基础扎实，经验匹配，进入一面',
+        'feedback_rating': 4,
+        'feedback_at': 'DYNAMIC_week_interview',
+        'created_at': 'DYNAMIC_last_week',
+        'updated_at': 'DYNAMIC_week_interview'
+    },
+    {
+        'id': 3,
+        'application_id': 5,
+        'job_id': 2,
+        'job_title': 'Python 后端开发工程师',
+        'candidate_name': '孙七',
+        'round': '一面',
+        'way': 'online',
+        'interview_time': 'DYNAMIC_tomorrow_interview',
+        'interviewer': '王技术经理',
+        'location': '',
+        'meeting_link': 'https://meeting.example.com/456',
+        'remark': '',
+        'status': 'scheduled',
+        'feedback_result': '',
+        'feedback_comment': '',
+        'feedback_rating': 0,
+        'feedback_at': '',
+        'created_at': 'DYNAMIC_today',
+        'updated_at': 'DYNAMIC_today'
     }
 ]
 
@@ -260,11 +338,23 @@ class MockDB:
         self.reset()
 
     def reset(self):
-        self.jobs = copy.deepcopy(INITIAL_JOBS)
-        self.applications = copy.deepcopy(INITIAL_APPLICATIONS)
-        self.messages = copy.deepcopy(INITIAL_MESSAGES)
-        self.interviews = copy.deepcopy(INITIAL_INTERVIEWS)
-        self.offers = copy.deepcopy(INITIAL_OFFERS)
+        dates = _gen_dates()
+
+        def _replace_dates(obj):
+            if isinstance(obj, list):
+                return [_replace_dates(item) for item in obj]
+            if isinstance(obj, dict):
+                return {k: _replace_dates(v) for k, v in obj.items()}
+            if isinstance(obj, str) and obj.startswith('DYNAMIC_'):
+                key = obj.replace('DYNAMIC_', '')
+                return dates.get(key, obj)
+            return obj
+
+        self.jobs = _replace_dates(copy.deepcopy(INITIAL_JOBS))
+        self.applications = _replace_dates(copy.deepcopy(INITIAL_APPLICATIONS))
+        self.messages = _replace_dates(copy.deepcopy(INITIAL_MESSAGES))
+        self.interviews = _replace_dates(copy.deepcopy(INITIAL_INTERVIEWS))
+        self.offers = _replace_dates(copy.deepcopy(INITIAL_OFFERS))
         self.next_job_id = max(j['id'] for j in self.jobs) + 1
         self.next_application_id = max(a['id'] for a in self.applications) + 1
         self.next_message_id = max(m['id'] for m in self.messages) + 1
@@ -442,6 +532,8 @@ class MockDB:
         today_str = now.strftime('%Y-%m-%d')
         week_start = now - timedelta(days=now.weekday())
         week_start_str = week_start.strftime('%Y-%m-%d')
+        week_end_date = week_start + timedelta(days=6)
+        week_end_str = week_end_date.strftime('%Y-%m-%d') + ' 23:59:59'
 
         end_date_full = end_date + ' 23:59:59' if end_date else None
 
@@ -494,7 +586,7 @@ class MockDB:
         total_interviews = len(interviews)
 
         today_interviews = len([i for i in interviews if i['interview_time'].startswith(today_str)])
-        week_interviews = len([i for i in interviews if i['interview_time'] >= week_start_str and i['interview_time'] < (now + timedelta(days=7 - now.weekday())).strftime('%Y-%m-%d')])
+        week_interviews = len([i for i in interviews if i['interview_time'] >= week_start_str and i['interview_time'] <= week_end_str])
 
         draft_offers = len([o for o in offers if o['status'] == 'draft'])
         sent_offers = len([o for o in offers if o['status'] == 'sent'])
