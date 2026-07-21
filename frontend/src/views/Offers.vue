@@ -115,6 +115,9 @@
         <el-form-item label="福利待遇">
           <el-input v-model="form.benefits" type="textarea" :rows="2" placeholder="请输入福利待遇说明" />
         </el-form-item>
+        <el-form-item label="附件说明">
+          <el-input v-model="form.attachment_note" type="textarea" :rows="2" placeholder="请输入附件相关说明，如：offer letter、入职须知等" />
+        </el-form-item>
         <el-form-item label="备注">
           <el-input v-model="form.remark" type="textarea" :rows="3" placeholder="请输入备注信息" />
         </el-form-item>
@@ -146,6 +149,10 @@
         <div class="detail-section" v-if="currentOffer.benefits">
           <h4>福利待遇</h4>
           <p>{{ currentOffer.benefits }}</p>
+        </div>
+        <div class="detail-section" v-if="currentOffer.attachment_note">
+          <h4>附件说明</h4>
+          <p>{{ currentOffer.attachment_note }}</p>
         </div>
         <div class="detail-section" v-if="currentOffer.remark">
           <h4>备注</h4>
@@ -206,6 +213,7 @@ const form = reactive({
   join_date: '',
   probation_months: 3,
   benefits: '',
+  attachment_note: '',
   remark: ''
 })
 
@@ -271,6 +279,7 @@ const resetForm = () => {
   form.join_date = ''
   form.probation_months = 3
   form.benefits = ''
+  form.attachment_note = ''
   form.remark = ''
   formRef.value?.clearValidate()
 }
@@ -292,6 +301,7 @@ const openEditDialog = (row) => {
   form.join_date = row.join_date
   form.probation_months = row.probation_months
   form.benefits = row.benefits
+  form.attachment_note = row.attachment_note || ''
   form.remark = row.remark
   dialogVisible.value = true
 }
@@ -322,6 +332,7 @@ const handleSave = async () => {
         join_date: form.join_date,
         probation_months: form.probation_months,
         benefits: form.benefits,
+        attachment_note: form.attachment_note,
         remark: form.remark
       })
       ElMessage.success('Offer 已更新')
@@ -333,6 +344,7 @@ const handleSave = async () => {
         join_date: form.join_date,
         probation_months: form.probation_months,
         benefits: form.benefits,
+        attachment_note: form.attachment_note,
         remark: form.remark
       })
       ElMessage.success('Offer 草稿已创建')

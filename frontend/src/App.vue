@@ -31,6 +31,10 @@
             <el-icon><Present /></el-icon>
             <span>我的 Offer</span>
           </el-menu-item>
+          <el-menu-item v-if="role === 'recruiter'" index="/dashboard">
+            <el-icon><DataBoard /></el-icon>
+            <span>工作台</span>
+          </el-menu-item>
           <el-menu-item v-if="role === 'recruiter'" index="/job-manage">
             <el-icon><Edit /></el-icon>
             <span>职位管理</span>

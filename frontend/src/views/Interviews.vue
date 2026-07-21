@@ -85,16 +85,22 @@
       :close-on-click-modal="false"
     >
       <el-form :model="form" :rules="rules" ref="formRef" label-width="90px">
-        <el-form-item label="候选人" v-if="!isEdit">
-          <el-select v-model="form.application_id" placeholder="选择候选人" filterable @change="onAppChange" style="width: 100%">
+        <el-form-item label="职位" v-if="!isEdit">
+          <el-select v-model="form.job_id" placeholder="选择职位（可选）" clearable @change="onJobFilterChange" style="width: 100%">
+            <el-option v-for="job in jobs" :key="job.id" :label="job.title" :value="job.id" />
+          </el-select>
+        </el-form-item>
+        <el-form-item label="候选人" prop="application_id" v-if="!isEdit">
+          <el-select v-model="form.application_id" placeholder="请选择候选人" filterable @change="onAppChange" style="width: 100%">
             <el-option
-              v-for="app in candidateOptions"
+              v-for="app in filteredCandidateOptions"
               :key="app.id"
               :label="`${app.candidate_name} - ${app.job_title}（${STATUS_TEXT[app.status]}）`"
               :value="app.id"
               :disabled="app.status !== 'screening' && app.status !== 'communicating'"
             />
           </el-select>
+          <div class="form-tip">仅显示「待沟通」或「沟通中」状态的投递</div>
         </el-form-item>
         <el-form-item label="候选人" v-else>
           <span>{{ currentInterview?.candidate_name }}</span>
@@ -235,7 +241,7 @@
 </template>
 
 <script setup>
-import { ref, reactive, inject, onMounted } from 'vue'
+import { ref, reactive, inject, onMounted, computed } from 'vue'
 import { useRouter } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { Plus } from '@element-plus/icons-vue'
@@ -265,6 +271,7 @@ const formRef = ref(null)
 const currentInterview = ref(null)
 const form = reactive({
   application_id: null,
+  job_id: null,
   round: '一面',
   way: 'onsite',
   interview_time: '',
@@ -286,6 +293,11 @@ const detailVisible = ref(false)
 const detailData = ref(null)
 
 const candidateOptions = ref([])
+
+const filteredCandidateOptions = computed(() => {
+  if (!form.job_id) return candidateOptions.value
+  return candidateOptions.value.filter(a => a.job_id === form.job_id)
+})
 
 const fetchJobs = async () => {
   try {
@@ -370,6 +382,11 @@ const openEditDialog = (row) => {
   })
   dialogVisible.value = true
   detailVisible.value = false
+}
+
+const onJobFilterChange = () => {
+  form.application_id = null
+  formRef.value?.clearValidate('application_id')
 }
 
 const onAppChange = () => {
@@ -555,5 +572,11 @@ onMounted(() => {
   margin: 0 0 12px 0;
   font-size: 15px;
   color: #303133;
+}
+
+.form-tip {
+  font-size: 12px;
+  color: #909399;
+  margin-top: 4px;
 }
 </style>

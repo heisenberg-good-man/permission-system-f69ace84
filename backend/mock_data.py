@@ -640,6 +640,7 @@ class MockDB:
             'join_date': data.get('join_date', ''),
             'probation_months': int(data.get('probation_months', 3) or 3),
             'benefits': data.get('benefits', ''),
+            'attachment_note': data.get('attachment_note', ''),
             'remark': data.get('remark', ''),
             'status': 'draft',
             'sent_at': '',

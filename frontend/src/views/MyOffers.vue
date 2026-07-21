@@ -78,6 +78,10 @@
           <h4>福利待遇</h4>
           <p>{{ currentOffer.benefits }}</p>
         </div>
+        <div class="detail-section" v-if="currentOffer.attachment_note">
+          <h4>附件说明</h4>
+          <p>{{ currentOffer.attachment_note }}</p>
+        </div>
         <div class="detail-section" v-if="currentOffer.remark">
           <h4>备注说明</h4>
           <p>{{ currentOffer.remark }}</p>

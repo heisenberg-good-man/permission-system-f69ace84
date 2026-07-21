@@ -417,6 +417,9 @@
         <el-form-item label="福利待遇">
           <el-input v-model="offerForm.benefits" type="textarea" :rows="2" placeholder="请输入福利待遇说明" />
         </el-form-item>
+        <el-form-item label="附件说明">
+          <el-input v-model="offerForm.attachment_note" type="textarea" :rows="2" placeholder="请输入附件相关说明，如：offer letter、入职须知等" />
+        </el-form-item>
         <el-form-item label="备注">
           <el-input v-model="offerForm.remark" type="textarea" :rows="3" placeholder="请输入备注信息" />
         </el-form-item>
@@ -497,6 +500,7 @@ const offerForm = ref({
   join_date: '',
   probation_months: 3,
   benefits: '',
+  attachment_note: '',
   remark: ''
 })
 const offerRules = {
@@ -756,6 +760,7 @@ const openOfferDialog = (isEdit = false, offer = null) => {
       join_date: offer.join_date,
       probation_months: offer.probation_months,
       benefits: offer.benefits,
+      attachment_note: offer.attachment_note || '',
       remark: offer.remark
     }
   } else {
@@ -766,6 +771,7 @@ const openOfferDialog = (isEdit = false, offer = null) => {
       join_date: '',
       probation_months: 3,
       benefits: '',
+      attachment_note: '',
       remark: ''
     }
   }
