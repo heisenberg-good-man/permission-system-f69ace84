@@ -302,3 +302,39 @@ AggregateError [ECONNREFUSED]:
 AggregateError [ECONNREFUSED]: 
     at internalConnectMultiple (node:net:1134:18)
     at afterConnectMultiple (node:net:1715:7)
+
+> recruitment-frontend@1.0.0 dev
+> vite --host 127.0.0.1 --port 3000
+
+
+  [32m[1mVITE[22m v5.4.21[39m  [2mready in [0m[1m4442[22m[2m[0m ms[22m
+
+  [32m➜[39m  [1mLocal[22m:   [36mhttp://127.0.0.1:[1m3000[22m/[39m
+[2m16:51:30[22m [31m[1m[vite][22m[39m [31mhttp proxy error: /api/reset?role=recruiter[39m
+AggregateError [ECONNREFUSED]: 
+    at internalConnectMultiple (node:net:1134:18)
+    at afterConnectMultiple (node:net:1715:7)
+[2m16:51:31[22m [31m[1m[vite][22m[39m [31mhttp proxy error: /api/stats?role=recruiter[39m
+AggregateError [ECONNREFUSED]: 
+    at internalConnectMultiple (node:net:1134:18)
+    at afterConnectMultiple (node:net:1715:7)
+[2m16:51:32[22m [31m[1m[vite][22m[39m [31mhttp proxy error: /api/dashboard-stats?role=recruiter[39m
+AggregateError [ECONNREFUSED]: 
+    at internalConnectMultiple (node:net:1134:18)
+    at afterConnectMultiple (node:net:1715:7)
+[2m16:51:32[22m [31m[1m[vite][22m[39m [31mhttp proxy error: /api/stats?role=recruiter[39m
+AggregateError [ECONNREFUSED]: 
+    at internalConnectMultiple (node:net:1134:18)
+    at afterConnectMultiple (node:net:1715:7)
+[2m16:51:32[22m [31m[1m[vite][22m[39m [31mhttp proxy error: /api/offers?start_date=2026-07-21&end_date=2026-07-21&role=recruiter[39m
+AggregateError [ECONNREFUSED]: 
+    at internalConnectMultiple (node:net:1134:18)
+    at afterConnectMultiple (node:net:1715:7)
+[2m16:51:32[22m [31m[1m[vite][22m[39m [31mhttp proxy error: /api/jobs?role=recruiter[39m
+AggregateError [ECONNREFUSED]: 
+    at internalConnectMultiple (node:net:1134:18)
+    at afterConnectMultiple (node:net:1715:7)
+[2m16:51:32[22m [31m[1m[vite][22m[39m [31mhttp proxy error: /api/offers?start_date=2026-07-21&end_date=2026-07-21&role=recruiter[39m
+AggregateError [ECONNREFUSED]: 
+    at internalConnectMultiple (node:net:1134:18)
+    at afterConnectMultiple (node:net:1715:7)
