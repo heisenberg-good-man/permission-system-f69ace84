@@ -5,9 +5,9 @@
         <div class="sidebar-header">
           <h3>
             <el-icon><ChatDotRound /></el-icon>
-            {{ role === 'recruiter' ? '候选人列表' : '我的沟通' }}
+            {{ isRecruiterSide ? '候选人列表' : '我的沟通' }}
           </h3>
-          <el-select v-if="role === 'recruiter'" v-model="jobFilter" placeholder="筛选职位" clearable size="small" style="width: 100%; margin-top: 8px" @change="fetchAppList">
+          <el-select v-if="isRecruiter" v-model="jobFilter" placeholder="筛选职位" clearable size="small" style="width: 100%; margin-top: 8px" @change="fetchAppList">
             <el-option v-for="j in jobs" :key="j.id" :label="j.title" :value="j.id" />
           </el-select>
         </div>
@@ -24,13 +24,13 @@
             </div>
             <div class="info">
               <div class="name-row">
-                <span class="name">{{ role === 'recruiter' ? app.candidate_name : app.job_title }}</span>
+                <span class="name">{{ isRecruiterSide ? app.candidate_name : app.job_title }}</span>
                 <el-tag :type="STATUS_TYPE[app.status]" size="small" effect="light">
                   {{ STATUS_TEXT[app.status] }}
                 </el-tag>
               </div>
               <div class="sub">
-                {{ role === 'recruiter' ? app.job_title : 'HR 沟通' }}
+                {{ isRecruiterSide ? app.job_title : 'HR 沟通' }}
               </div>
               <div class="time">{{ formatTime(app.applied_at) }}</div>
             </div>
@@ -43,16 +43,16 @@
         <div v-if="currentApp" class="chat-header">
           <div>
             <div class="chat-title">
-              <span class="name">{{ role === 'recruiter' ? currentApp.candidate_name : currentApp.job_title }}</span>
+              <span class="name">{{ isRecruiterSide ? currentApp.candidate_name : currentApp.job_title }}</span>
               <el-tag :type="STATUS_TYPE[currentApp.status]">{{ STATUS_TEXT[currentApp.status] }}</el-tag>
             </div>
             <div class="chat-sub">
-              {{ role === 'recruiter' ? `应聘: ${currentApp.job_title}` : `候选人: ${currentApp.candidate_name}` }}
-              <span v-if="role === 'recruiter'" class="divider">|</span>
-              <span v-if="role === 'recruiter'">{{ currentApp.candidate_phone }}</span>
+              {{ isRecruiterSide ? `应聘: ${currentApp.job_title}` : `候选人: ${currentApp.candidate_name}` }}
+              <span v-if="isRecruiterSide" class="divider">|</span>
+              <span v-if="isRecruiterSide">{{ currentApp.candidate_phone }}</span>
             </div>
           </div>
-          <div v-if="role === 'recruiter'" class="status-actions">
+          <div v-if="isRecruiter" class="status-actions">
             <el-dropdown trigger="click" @command="changeStatus">
               <el-button type="primary">
                 推进状态
@@ -74,6 +74,9 @@
               </template>
             </el-dropdown>
           </div>
+          <div v-else-if="isHiringManager" class="status-actions">
+            <el-tag type="info" effect="light">只读查看</el-tag>
+          </div>
         </div>
 
         <div v-else class="empty-chat">
@@ -89,20 +92,21 @@
           </el-result>
         </div>
 
-        <div v-else-if="currentApp" class="messages-container" ref="msgContainer">
-          <div v-for="msg in messages" :key="msg.id" class="message-row" :class="msg.sender">
-            <div class="msg-avatar">{{ (msg.sender_name || '?').charAt(0) }}</div>
-            <div class="msg-bubble-wrap">
-              <div class="msg-meta">
-                <span class="msg-name">{{ msg.sender_name }}</span>
-                <span class="msg-time">{{ msg.created_at }}</span>
-              </div>
-              <div class="msg-bubble">{{ msg.content }}</div>
-            </div>
-          </div>
+        <div v-else-if="currentApp" class="timeline-container">
+          <CommunicationTimeline
+            :messages="messages"
+            :interviews="interviews"
+            :offers="offers"
+            :loading="timelineLoading"
+            :error-msg="timelineError"
+            :auto-scroll="true"
+          />
         </div>
 
-        <div v-if="currentApp && !loadError" class="input-area">
+        <div v-if="currentApp && !loadError && isRecruiter" class="input-area">
+          <div v-if="sendError" class="send-error-banner">
+            <el-alert :title="sendError" type="error" :closable="false" show-icon size="small" />
+          </div>
           <el-input
             v-model="inputMsg"
             type="textarea"
@@ -117,23 +121,33 @@
             </el-button>
           </div>
         </div>
+
+        <div v-if="currentApp && !loadError && isHiringManager" class="readonly-footer">
+          <el-alert title="招聘负责人仅可查看沟通记录，无法发送消息或操作状态" type="info" :closable="false" show-icon />
+        </div>
       </div>
     </div>
   </div>
 </template>
 
 <script setup>
-import { ref, computed, inject, onMounted, nextTick } from 'vue'
+import { ref, computed, inject, onMounted, provide } from 'vue'
 import { useRoute } from 'vue-router'
 import { ArrowDown, Promotion } from '@element-plus/icons-vue'
 import { ElMessage } from 'element-plus'
-import { api } from '../api'
+import { api, OFFER_STATUS_TEXT } from '../api'
+import CommunicationTimeline from '../components/CommunicationTimeline.vue'
 
 const route = useRoute()
 const role = inject('role')
+const isRecruiter = inject('isRecruiter')
+const isHiringManager = inject('isHiringManager')
+const isRecruiterSide = inject('isRecruiterSide')
 const refreshStats = inject('refreshStats')
 const STATUS_TEXT = inject('STATUS_TEXT')
 const STATUS_TYPE = inject('STATUS_TYPE')
+
+provide('OFFER_STATUS_TEXT', OFFER_STATUS_TEXT)
 
 const STATUS_FLOW = {
   pending: ['screening', 'communicating', 'rejected'],
@@ -148,8 +162,13 @@ const appList = ref([])
 const currentAppId = ref(null)
 const currentApp = ref(null)
 const messages = ref([])
+const interviews = ref([])
+const offers = ref([])
 const inputMsg = ref('')
 const sending = ref(false)
+const sendError = ref('')
+const timelineLoading = ref(false)
+const timelineError = ref('')
 const msgContainer = ref(null)
 const jobFilter = ref('')
 const loadError = ref('')
@@ -181,40 +200,52 @@ const fetchAppList = async () => {
   } catch (e) {}
 }
 
+const loadTimelineData = async (appId) => {
+  timelineLoading.value = true
+  timelineError.value = ''
+  try {
+    const [msgs, ivs, ofs] = await Promise.all([
+      api.getMessages(appId),
+      api.getApplicationInterviews(appId),
+      api.getOffers({ application_id: appId })
+    ])
+    messages.value = msgs
+    interviews.value = ivs
+    offers.value = ofs
+  } catch (e) {
+    timelineError.value = e.message || '加载失败'
+    messages.value = []
+    interviews.value = []
+    offers.value = []
+  } finally {
+    timelineLoading.value = false
+  }
+}
+
 const selectApp = async (id) => {
   currentAppId.value = id
   loadError.value = ''
+  sendError.value = ''
   const app = appList.value.find(a => a.id === id)
   currentApp.value = app || null
-  try {
-    messages.value = await api.getMessages(id)
-  } catch (e) {
-    loadError.value = e.message || '加载消息失败'
-    messages.value = []
-  }
-  nextTick(scrollToBottom)
-}
-
-const scrollToBottom = () => {
-  if (msgContainer.value) {
-    msgContainer.value.scrollTop = msgContainer.value.scrollHeight
-  }
+  await loadTimelineData(id)
 }
 
 const sendMsg = async () => {
   if (!inputMsg.value.trim()) return
   if (!currentAppId.value) return
   sending.value = true
+  sendError.value = ''
   try {
     const sender = role.value
     const senderName = role.value === 'recruiter' ? '李经理' : (currentApp.value?.candidate_name || '候选人')
-    const msg = await api.sendMessage(currentAppId.value, {
+    await api.sendMessage(currentAppId.value, {
       sender,
       sender_name: senderName,
       content: inputMsg.value
     })
-    messages.value.push(msg)
     inputMsg.value = ''
+    await loadTimelineData(currentAppId.value)
     if (role.value === 'recruiter' && currentApp.value?.status === 'pending') {
       try {
         await api.updateApplicationStatus(currentAppId.value, 'screening')
@@ -224,9 +255,8 @@ const sendMsg = async () => {
         refreshStats()
       } catch (e) {}
     }
-    nextTick(scrollToBottom)
   } catch (e) {
-    ElMessage.error(e.message || '发送失败')
+    sendError.value = e.message || '发送失败'
   } finally {
     sending.value = false
   }
@@ -442,85 +472,9 @@ onMounted(async () => {
   justify-content: center;
 }
 
-.messages-container {
+.timeline-container {
   flex: 1;
-  overflow-y: auto;
-  padding: 20px;
-  background: #fafafa;
-}
-
-.message-row {
-  display: flex;
-  margin-bottom: 20px;
-  gap: 10px;
-}
-
-.message-row.recruiter {
-  flex-direction: row-reverse;
-}
-
-.message-row.candidate .msg-bubble-wrap {
-  align-items: flex-start;
-}
-
-.message-row.recruiter .msg-bubble-wrap {
-  align-items: flex-end;
-}
-
-.msg-avatar {
-  width: 36px;
-  height: 36px;
-  border-radius: 50%;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-weight: 600;
-  font-size: 14px;
-  flex-shrink: 0;
-  color: #fff;
-}
-
-.message-row.candidate .msg-avatar {
-  background: linear-gradient(135deg, #10b981, #34d399);
-}
-
-.message-row.recruiter .msg-avatar {
-  background: linear-gradient(135deg, #6366f1, #8b5cf6);
-}
-
-.msg-bubble-wrap {
-  max-width: 70%;
-  display: flex;
-  flex-direction: column;
-}
-
-.msg-meta {
-  font-size: 11px;
-  color: #9ca3af;
-  margin-bottom: 4px;
-  display: flex;
-  gap: 10px;
-}
-
-.msg-bubble {
-  padding: 10px 14px;
-  border-radius: 10px;
-  line-height: 1.5;
-  font-size: 14px;
-  white-space: pre-wrap;
-  word-break: break-word;
-}
-
-.message-row.candidate .msg-bubble {
-  background: #fff;
-  border: 1px solid #e5e7eb;
-  border-top-left-radius: 2px;
-}
-
-.message-row.recruiter .msg-bubble {
-  background: #409eff;
-  color: #fff;
-  border-top-right-radius: 2px;
+  overflow: hidden;
 }
 
 .input-area {
@@ -529,9 +483,19 @@ onMounted(async () => {
   background: #fff;
 }
 
+.send-error-banner {
+  margin-bottom: 8px;
+}
+
 .send-row {
   display: flex;
   justify-content: flex-end;
   margin-top: 8px;
+}
+
+.readonly-footer {
+  padding: 12px 16px;
+  border-top: 1px solid #f0f0f0;
+  background: #fff;
 }
 </style>

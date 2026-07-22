@@ -2,10 +2,13 @@
   <div class="interviews-page">
     <div class="page-header">
       <h2>面试安排</h2>
-      <el-button type="primary" @click="openCreateDialog">
-        <el-icon><Plus /></el-icon>
-        安排面试
-      </el-button>
+      <div>
+        <el-tag v-if="isHiringManager" type="info" effect="light" style="margin-right: 12px">招聘负责人 - 只读查看</el-tag>
+        <el-button v-if="isRecruiter" type="primary" @click="openCreateDialog">
+          <el-icon><Plus /></el-icon>
+          安排面试
+        </el-button>
+      </div>
     </div>
 
     <el-card class="filter-card">
@@ -63,15 +66,17 @@
         <el-table-column label="操作" width="240" fixed="right">
           <template #default="{ row }">
             <el-button link type="primary" @click="viewDetail(row)">详情</el-button>
-            <el-button link type="primary" @click="openEditDialog(row)" v-if="row.status === 'scheduled'">
-              修改
-            </el-button>
-            <el-button link type="success" @click="openFeedbackDialog(row)" v-if="row.status === 'scheduled' || row.status === 'completed'">
-              反馈
-            </el-button>
-            <el-button link type="danger" @click="handleCancel(row)" v-if="row.status === 'scheduled'">
-              取消
-            </el-button>
+            <template v-if="isRecruiter">
+              <el-button link type="primary" @click="openEditDialog(row)" v-if="row.status === 'scheduled'">
+                修改
+              </el-button>
+              <el-button link type="success" @click="openFeedbackDialog(row)" v-if="row.status === 'scheduled' || row.status === 'completed'">
+                反馈
+              </el-button>
+              <el-button link type="danger" @click="handleCancel(row)" v-if="row.status === 'scheduled'">
+                取消
+              </el-button>
+            </template>
           </template>
         </el-table-column>
       </el-table>
@@ -260,6 +265,8 @@ const route = useRoute()
 const refreshStats = inject('refreshStats')
 const refreshAll = inject('refreshAll')
 const refreshDashboardStats = inject('refreshDashboardStats')
+const isRecruiter = inject('isRecruiter')
+const isHiringManager = inject('isHiringManager')
 
 const loading = ref(false)
 const interviews = ref([])

@@ -81,7 +81,7 @@
               </el-tag>
             </div>
           </div>
-          <div class="detail-actions">
+          <div class="detail-actions" v-if="isRecruiter">
             <el-button type="primary" @click="goToComm(selectedApp.id)">
               <el-icon><ChatDotRound /></el-icon>
               发起沟通
@@ -116,6 +116,9 @@
               </template>
             </el-dropdown>
           </div>
+          <div v-else-if="isHiringManager" class="detail-actions">
+            <el-tag type="info" effect="light">招聘负责人 - 只读查看</el-tag>
+          </div>
         </div>
 
         <el-tabs v-model="activeTab" class="detail-tabs">
@@ -139,30 +142,34 @@
             </div>
           </el-tab-pane>
 
-          <el-tab-pane label="沟通记录" name="messages">
-            <div class="messages-preview">
-              <div v-if="messages.length === 0" class="no-messages">
-                <el-empty description="暂无沟通记录" :image-size="60" />
-                <el-button type="primary" @click="goToComm(selectedApp.id)">
-                  发起第一次沟通
-                </el-button>
-              </div>
-              <div v-else class="msg-list">
-                <div v-for="msg in messages.slice(-5)" :key="msg.id" class="msg-item" :class="msg.sender">
-                  <div class="msg-avatar">{{ msg.sender_name.charAt(0) }}</div>
-                  <div class="msg-body">
-                    <div class="msg-head">
-                      <span class="msg-sender">{{ msg.sender_name }}</span>
-                      <span class="msg-time">{{ msg.created_at }}</span>
-                    </div>
-                    <div class="msg-text">{{ msg.content }}</div>
-                  </div>
+          <el-tab-pane label="沟通时间线" name="messages">
+            <div class="timeline-wrapper">
+              <CommunicationTimeline
+                :messages="messages"
+                :interviews="interviews"
+                :offers="offers"
+                :loading="msgLoading"
+                :error-msg="msgError"
+              />
+              <div v-if="isRecruiter" class="msg-input-area">
+                <div v-if="msgError" class="send-error">
+                  <el-alert :title="msgError" type="error" :closable="false" show-icon size="small" />
+                </div>
+                <el-input
+                  v-model="inputMsg"
+                  type="textarea"
+                  :rows="2"
+                  placeholder="输入消息，按 Enter 发送，Shift+Enter 换行"
+                  @keydown.enter.exact.prevent="sendMsg"
+                />
+                <div class="send-row">
+                  <el-button type="primary" @click="sendMsg" :loading="msgSending">
+                    发送消息
+                  </el-button>
                 </div>
               </div>
-              <div class="msg-more" v-if="messages.length > 5">
-                <el-button type="primary" link @click="goToComm(selectedApp.id)">
-                  查看全部 {{ messages.length }} 条消息 →
-                </el-button>
+              <div v-else-if="isHiringManager" class="readonly-tip">
+                <el-alert title="招聘负责人仅可查看沟通记录，无法发送消息" type="info" :closable="false" show-icon />
               </div>
             </div>
           </el-tab-pane>
@@ -433,16 +440,22 @@
 </template>
 
 <script setup>
-import { ref, computed, inject, onMounted, watch } from 'vue'
+import { ref, computed, inject, onMounted, watch, nextTick, provide } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { api, INTERVIEW_STATUS_TEXT, INTERVIEW_STATUS_TYPE, INTERVIEW_WAY_TEXT, INTERVIEW_ROUNDS, INTERVIEW_FEEDBACK_RESULT_TEXT, INTERVIEW_FEEDBACK_RESULT_TYPE, OFFER_STATUS_TEXT, OFFER_STATUS_TYPE } from '../api'
+import CommunicationTimeline from '../components/CommunicationTimeline.vue'
 
 const router = useRouter()
 const route = useRoute()
 const refreshStats = inject('refreshStats')
+const refreshDashboardStats = inject('refreshDashboardStats')
 const STATUS_TEXT = inject('STATUS_TEXT')
 const STATUS_TYPE = inject('STATUS_TYPE')
+const isRecruiter = inject('isRecruiter')
+const isHiringManager = inject('isHiringManager')
+
+provide('OFFER_STATUS_TEXT', OFFER_STATUS_TEXT)
 
 const jobs = ref([])
 const applications = ref([])
@@ -452,6 +465,10 @@ const jobFilter = ref('')
 const statusFilter = ref('')
 const selectedId = ref(null)
 const activeTab = ref('resume')
+const msgError = ref('')
+const msgLoading = ref(false)
+const msgSending = ref(false)
+const inputMsg = ref('')
 
 const interviewDialogVisible = ref(false)
 const isEditInterview = ref(false)
@@ -598,21 +615,19 @@ const appsValueContains = (id) => {
 const selectCandidate = async (app) => {
   selectedId.value = app.id
   activeTab.value = 'resume'
+  msgError.value = ''
+  msgLoading.value = true
   try {
-    messages.value = await api.getMessages(app.id)
-  } catch (e) {
-    messages.value = []
-    ElMessage.error(e.message || '加载沟通记录失败')
-  }
-  try {
-    interviews.value = await api.getApplicationInterviews(app.id)
-  } catch (e) {
-    interviews.value = []
-  }
-  try {
-    offers.value = await api.getOffers({ application_id: app.id })
-  } catch (e) {
-    offers.value = []
+    const [msgs, ivs, ofs] = await Promise.all([
+      api.getMessages(app.id).catch(() => []),
+      api.getApplicationInterviews(app.id).catch(() => []),
+      api.getOffers({ application_id: app.id }).catch(() => [])
+    ])
+    messages.value = msgs
+    interviews.value = ivs
+    offers.value = ofs
+  } finally {
+    msgLoading.value = false
   }
 }
 
@@ -631,6 +646,35 @@ const handleStatusChange = async (newStatus) => {
     }
   } catch (e) {
     ElMessage.error(e.message || '状态更新失败')
+  }
+}
+
+const sendMsg = async () => {
+  if (!inputMsg.value.trim()) return
+  if (!selectedId.value) return
+  msgSending.value = true
+  msgError.value = ''
+  try {
+    await api.sendMessage(selectedId.value, {
+      sender: 'recruiter',
+      sender_name: '李经理',
+      content: inputMsg.value
+    })
+    inputMsg.value = ''
+    const msgs = await api.getMessages(selectedId.value)
+    messages.value = msgs
+    if (selectedApp.value?.status === 'pending') {
+      try {
+        await api.updateApplicationStatus(selectedId.value, 'screening')
+        const app = applications.value.find(a => a.id === selectedId.value)
+        if (app) app.status = 'screening'
+        refreshStats()
+      } catch (e) {}
+    }
+  } catch (e) {
+    msgError.value = e.message || '发送失败'
+  } finally {
+    msgSending.value = false
   }
 }
 
@@ -894,6 +938,37 @@ onMounted(async () => {
 </script>
 
 <style scoped>
+.timeline-wrapper {
+  display: flex;
+  flex-direction: column;
+  height: 500px;
+  border: 1px solid #f0f0f0;
+  border-radius: 8px;
+  overflow: hidden;
+}
+
+.msg-input-area {
+  padding: 12px 16px;
+  border-top: 1px solid #f0f0f0;
+  background: #fff;
+}
+
+.send-error {
+  margin-bottom: 8px;
+}
+
+.send-row {
+  display: flex;
+  justify-content: flex-end;
+  margin-top: 8px;
+}
+
+.readonly-tip {
+  padding: 12px 16px;
+  border-top: 1px solid #f0f0f0;
+  background: #fff;
+}
+
 .page-container {
   padding: 20px;
 }

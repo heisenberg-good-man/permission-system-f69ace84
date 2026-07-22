@@ -31,7 +31,7 @@
             <el-icon><Present /></el-icon>
             <span>我的 Offer</span>
           </el-menu-item>
-          <el-menu-item v-if="role === 'recruiter'" index="/dashboard">
+          <el-menu-item v-if="role === 'recruiter' || role === 'hiring_manager'" index="/dashboard">
             <el-icon><DataBoard /></el-icon>
             <span>工作台</span>
           </el-menu-item>
@@ -39,15 +39,15 @@
             <el-icon><Edit /></el-icon>
             <span>职位管理</span>
           </el-menu-item>
-          <el-menu-item v-if="role === 'recruiter'" index="/applications">
+          <el-menu-item v-if="role === 'recruiter' || role === 'hiring_manager'" index="/applications">
             <el-icon><User /></el-icon>
             <span>候选人</span>
           </el-menu-item>
-          <el-menu-item v-if="role === 'recruiter'" index="/interviews">
+          <el-menu-item v-if="role === 'recruiter' || role === 'hiring_manager'" index="/interviews">
             <el-icon><Calendar /></el-icon>
             <span>面试安排</span>
           </el-menu-item>
-          <el-menu-item v-if="role === 'recruiter'" index="/offers">
+          <el-menu-item v-if="role === 'recruiter' || role === 'hiring_manager'" index="/offers">
             <el-icon><Present /></el-icon>
             <span>Offer 管理</span>
           </el-menu-item>
@@ -62,6 +62,10 @@
           <el-radio-button label="recruiter">
             <el-icon><OfficeBuilding /></el-icon>
             招聘方
+          </el-radio-button>
+          <el-radio-button label="hiring_manager">
+            <el-icon><DataBoard /></el-icon>
+            招聘负责人
           </el-radio-button>
         </el-radio-group>
         <el-button type="danger" plain size="small" @click="handleReset">
@@ -112,10 +116,14 @@ const dataVersion = ref(0)
 const appReady = ref(false)
 const currentCandidateName = ref('李四')
 
+const isRecruiter = computed(() => role.value === 'recruiter')
+const isHiringManager = computed(() => role.value === 'hiring_manager')
+const isRecruiterSide = computed(() => role.value === 'recruiter' || role.value === 'hiring_manager')
+
 const activeMenu = computed(() => route.path)
 
 const statItems = computed(() => {
-  if (role.value === 'recruiter') {
+  if (isRecruiterSide.value) {
     return [
       { label: '职位总数', value: stats.value.total_jobs || 0, icon: 'Briefcase', color: '#409eff' },
       { label: '招聘中', value: stats.value.open_jobs || 0, icon: 'CircleCheck', color: '#67c23a' },
@@ -164,8 +172,8 @@ const onRoleChange = () => {
   localStorage.setItem('candidateName', currentCandidateName.value)
   request.defaults.headers.common['x-role'] = role.value
   request.defaults.headers.common['x-candidate-name'] = currentCandidateName.value
-  if (role.value === 'recruiter') {
-    router.push('/job-manage')
+  if (isRecruiterSide.value) {
+    router.push('/dashboard')
   } else {
     router.push('/jobs')
   }
@@ -204,6 +212,9 @@ provide('refreshAll', refreshAll)
 provide('dashboardStats', dashboardStats)
 provide('refreshDashboardStats', refreshDashboardStats)
 provide('role', role)
+provide('isRecruiter', isRecruiter)
+provide('isHiringManager', isHiringManager)
+provide('isRecruiterSide', isRecruiterSide)
 provide('currentCandidateName', currentCandidateName)
 provide('STATUS_TEXT', STATUS_TEXT)
 provide('STATUS_TYPE', STATUS_TYPE)
