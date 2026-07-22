@@ -54,6 +54,22 @@
         </el-menu>
       </div>
       <div class="header-right">
+        <template v-if="role === 'candidate'">
+          <el-input
+            v-model="currentCandidateName"
+            placeholder="请输入候选人姓名"
+            size="default"
+            style="width: 160px"
+            clearable
+            @change="onCandidateNameChange"
+          />
+        </template>
+        <template v-else-if="role === 'recruiter' || role === 'hiring_manager'">
+          <el-select v-model="currentRecruiterName" size="default" style="width: 140px" @change="onRecruiterNameChange">
+            <el-option label="李经理" value="李经理" />
+            <el-option label="王主管" value="王主管" />
+          </el-select>
+        </template>
         <el-radio-group v-model="role" size="default" @change="onRoleChange">
           <el-radio-button label="candidate">
             <el-icon><Avatar /></el-icon>
@@ -114,7 +130,8 @@ const stats = ref({})
 const dashboardStats = reactive({ data: {} })
 const dataVersion = ref(0)
 const appReady = ref(false)
-const currentCandidateName = ref('李四')
+const currentCandidateName = ref(localStorage.getItem('candidateName') || '李四')
+const currentRecruiterName = ref(localStorage.getItem('recruiterName') || '李经理')
 
 const isRecruiter = computed(() => role.value === 'recruiter')
 const isHiringManager = computed(() => role.value === 'hiring_manager')
@@ -170,14 +187,31 @@ const refreshDashboardStats = async () => {
 const onRoleChange = () => {
   localStorage.setItem('role', role.value)
   localStorage.setItem('candidateName', currentCandidateName.value)
+  localStorage.setItem('recruiterName', currentRecruiterName.value)
   request.defaults.headers.common['x-role'] = role.value
   request.defaults.headers.common['x-candidate-name'] = currentCandidateName.value
+  request.defaults.headers.common['x-recruiter-name'] = currentRecruiterName.value
   if (isRecruiterSide.value) {
     router.push('/dashboard')
   } else {
     router.push('/jobs')
   }
   fetchStats()
+}
+
+const onCandidateNameChange = () => {
+  localStorage.setItem('candidateName', currentCandidateName.value)
+  request.defaults.headers.common['x-candidate-name'] = currentCandidateName.value
+  dataVersion.value++
+  fetchStats()
+}
+
+const onRecruiterNameChange = () => {
+  localStorage.setItem('recruiterName', currentRecruiterName.value)
+  request.defaults.headers.common['x-recruiter-name'] = currentRecruiterName.value
+  dataVersion.value++
+  fetchStats()
+  refreshDashboardStats()
 }
 
 const handleReset = async () => {
@@ -198,6 +232,7 @@ const initData = async () => {
   if (appReady.value) return
   request.defaults.headers.common['x-role'] = role.value
   request.defaults.headers.common['x-candidate-name'] = currentCandidateName.value
+  request.defaults.headers.common['x-recruiter-name'] = currentRecruiterName.value
   try {
     await api.resetData()
   } catch (e) {}
@@ -216,6 +251,7 @@ provide('isRecruiter', isRecruiter)
 provide('isHiringManager', isHiringManager)
 provide('isRecruiterSide', isRecruiterSide)
 provide('currentCandidateName', currentCandidateName)
+provide('currentRecruiterName', currentRecruiterName)
 provide('STATUS_TEXT', STATUS_TEXT)
 provide('STATUS_TYPE', STATUS_TYPE)
 provide('INTERVIEW_STATUS_TEXT', INTERVIEW_STATUS_TEXT)

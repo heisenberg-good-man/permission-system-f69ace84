@@ -38,35 +38,48 @@
           <span class="list-count">共 {{ filteredApps.length }} 人</span>
         </div>
         <div class="candidate-items">
-          <div
-            v-for="app in filteredApps"
-            :key="app.id"
-            class="candidate-item"
-            :class="{ active: selectedId === app.id }"
-            @click="selectCandidate(app)"
-          >
-            <div class="candidate-avatar">
-              {{ app.candidate_name.charAt(0) }}
-            </div>
-            <div class="candidate-info">
-              <div class="info-top">
-                <span class="name">{{ app.candidate_name }}</span>
-                <el-tag :type="STATUS_TYPE[app.status]" size="small" effect="light">
-                  {{ STATUS_TEXT[app.status] }}
-                </el-tag>
-              </div>
-              <div class="info-mid">
-                <el-icon><Briefcase /></el-icon>
-                {{ app.job_title }}
-              </div>
-              <div class="info-bottom">
-                <span><el-icon><Reading /></el-icon> {{ app.education }}</span>
-                <span><el-icon><Clock /></el-icon> {{ app.experience }}</span>
-                <span class="time">{{ formatTime(app.applied_at) }}</span>
-              </div>
-            </div>
+          <div v-if="listLoading" class="list-loading">
+            <el-icon class="is-loading" :size="24"><Loading /></el-icon>
+            <span>加载中...</span>
           </div>
-          <el-empty v-if="filteredApps.length === 0" description="暂无候选人" :image-size="60" />
+          <div v-else-if="listError" class="list-error">
+            <el-alert :title="listError" type="error" :closable="false" show-icon />
+            <el-button type="primary" plain size="small" style="margin-top: 12px" @click="fetchData">
+              <el-icon><Refresh /></el-icon>
+              重试
+            </el-button>
+          </div>
+          <template v-else>
+            <div
+              v-for="app in filteredApps"
+              :key="app.id"
+              class="candidate-item"
+              :class="{ active: selectedId === app.id }"
+              @click="selectCandidate(app)"
+            >
+              <div class="candidate-avatar">
+                {{ app.candidate_name.charAt(0) }}
+              </div>
+              <div class="candidate-info">
+                <div class="info-top">
+                  <span class="name">{{ app.candidate_name }}</span>
+                  <el-tag :type="STATUS_TYPE[app.status]" size="small" effect="light">
+                    {{ STATUS_TEXT[app.status] }}
+                  </el-tag>
+                </div>
+                <div class="info-mid">
+                  <el-icon><Briefcase /></el-icon>
+                  {{ app.job_title }}
+                </div>
+                <div class="info-bottom">
+                  <span><el-icon><Reading /></el-icon> {{ app.education }}</span>
+                  <span><el-icon><Clock /></el-icon> {{ app.experience }}</span>
+                  <span class="time">{{ formatTime(app.applied_at) }}</span>
+                </div>
+              </div>
+            </div>
+            <el-empty v-if="filteredApps.length === 0" description="暂无候选人" :image-size="60" />
+          </template>
         </div>
       </div>
 
@@ -150,6 +163,8 @@
                 :offers="offers"
                 :loading="msgLoading"
                 :error-msg="msgError"
+                :retry-text="'重新加载'"
+                @retry="reloadTimeline"
               />
               <div v-if="isRecruiter" class="msg-input-area">
                 <div v-if="msgError" class="send-error">
@@ -443,6 +458,7 @@
 import { ref, computed, inject, onMounted, watch, nextTick, provide } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
+import { Loading, Refresh } from '@element-plus/icons-vue'
 import { api, INTERVIEW_STATUS_TEXT, INTERVIEW_STATUS_TYPE, INTERVIEW_WAY_TEXT, INTERVIEW_ROUNDS, INTERVIEW_FEEDBACK_RESULT_TEXT, INTERVIEW_FEEDBACK_RESULT_TYPE, OFFER_STATUS_TEXT, OFFER_STATUS_TYPE } from '../api'
 import CommunicationTimeline from '../components/CommunicationTimeline.vue'
 
@@ -454,6 +470,7 @@ const STATUS_TEXT = inject('STATUS_TEXT')
 const STATUS_TYPE = inject('STATUS_TYPE')
 const isRecruiter = inject('isRecruiter')
 const isHiringManager = inject('isHiringManager')
+const currentRecruiterName = inject('currentRecruiterName')
 
 provide('OFFER_STATUS_TEXT', OFFER_STATUS_TEXT)
 
@@ -469,6 +486,8 @@ const msgError = ref('')
 const msgLoading = ref(false)
 const msgSending = ref(false)
 const inputMsg = ref('')
+const listLoading = ref(false)
+const listError = ref('')
 
 const interviewDialogVisible = ref(false)
 const isEditInterview = ref(false)
@@ -593,18 +612,26 @@ const formatTime = (t) => {
 }
 
 const fetchData = async () => {
-  const [jobsData, appsData] = await Promise.all([
-    api.getJobs(),
-    api.getApplications({ job_id: jobFilter.value || undefined, status: statusFilter.value || undefined })
-  ])
-  jobs.value = jobsData
-  applications.value = appsData
-  if (selectedId.value && !appsValueContains(selectedId.value)) {
-    if (appsData.length > 0) {
-      selectCandidate(appsData[0])
-    } else {
-      selectedId.value = null
+  listLoading.value = true
+  listError.value = ''
+  try {
+    const [jobsData, appsData] = await Promise.all([
+      api.getJobs(),
+      api.getApplications({ job_id: jobFilter.value || undefined, status: statusFilter.value || undefined })
+    ])
+    jobs.value = jobsData
+    applications.value = appsData
+    if (selectedId.value && !appsValueContains(selectedId.value)) {
+      if (appsData.length > 0) {
+        selectCandidate(appsData[0])
+      } else {
+        selectedId.value = null
+      }
     }
+  } catch (e) {
+    listError.value = e.message || '加载候选人列表失败'
+  } finally {
+    listLoading.value = false
   }
 }
 
@@ -617,15 +644,20 @@ const selectCandidate = async (app) => {
   activeTab.value = 'resume'
   msgError.value = ''
   msgLoading.value = true
+  messages.value = []
+  interviews.value = []
+  offers.value = []
   try {
     const [msgs, ivs, ofs] = await Promise.all([
-      api.getMessages(app.id).catch(() => []),
-      api.getApplicationInterviews(app.id).catch(() => []),
-      api.getOffers({ application_id: app.id }).catch(() => [])
+      api.getMessages(app.id),
+      api.getApplicationInterviews(app.id),
+      api.getOffers({ application_id: app.id })
     ])
     messages.value = msgs
     interviews.value = ivs
     offers.value = ofs
+  } catch (e) {
+    msgError.value = e.message || '加载沟通记录失败'
   } finally {
     msgLoading.value = false
   }
@@ -657,7 +689,7 @@ const sendMsg = async () => {
   try {
     await api.sendMessage(selectedId.value, {
       sender: 'recruiter',
-      sender_name: '李经理',
+      sender_name: currentRecruiterName.value,
       content: inputMsg.value
     })
     inputMsg.value = ''
@@ -680,6 +712,11 @@ const sendMsg = async () => {
 
 const goToComm = (id) => {
   router.push(`/communication/${id}`)
+}
+
+const reloadTimeline = () => {
+  if (!selectedApp.value) return
+  selectCandidate(selectedApp.value)
 }
 
 const openInterviewDialog = () => {

@@ -100,10 +100,12 @@
             :loading="timelineLoading"
             :error-msg="timelineError"
             :auto-scroll="true"
+            :retry-text="'重新加载'"
+            @retry="reloadTimeline"
           />
         </div>
 
-        <div v-if="currentApp && !loadError && isRecruiter" class="input-area">
+        <div v-if="currentApp && !loadError && (isRecruiter || role === 'candidate')" class="input-area">
           <div v-if="sendError" class="send-error-banner">
             <el-alert :title="sendError" type="error" :closable="false" show-icon size="small" />
           </div>
@@ -144,6 +146,9 @@ const isRecruiter = inject('isRecruiter')
 const isHiringManager = inject('isHiringManager')
 const isRecruiterSide = inject('isRecruiterSide')
 const refreshStats = inject('refreshStats')
+const refreshDashboardStats = inject('refreshDashboardStats')
+const currentCandidateName = inject('currentCandidateName')
+const currentRecruiterName = inject('currentRecruiterName')
 const STATUS_TEXT = inject('STATUS_TEXT')
 const STATUS_TYPE = inject('STATUS_TYPE')
 
@@ -238,7 +243,9 @@ const sendMsg = async () => {
   sendError.value = ''
   try {
     const sender = role.value
-    const senderName = role.value === 'recruiter' ? '李经理' : (currentApp.value?.candidate_name || '候选人')
+    const senderName = role.value === 'recruiter'
+      ? currentRecruiterName.value
+      : (role.value === 'candidate' ? currentCandidateName.value : (currentApp.value?.candidate_name || '候选人'))
     await api.sendMessage(currentAppId.value, {
       sender,
       sender_name: senderName,
@@ -253,6 +260,7 @@ const sendMsg = async () => {
         const app = appList.value.find(a => a.id === currentAppId.value)
         if (app) app.status = 'screening'
         refreshStats()
+        if (refreshDashboardStats) refreshDashboardStats()
       } catch (e) {}
     }
   } catch (e) {
@@ -260,6 +268,11 @@ const sendMsg = async () => {
   } finally {
     sending.value = false
   }
+}
+
+const reloadTimeline = () => {
+  if (!currentAppId.value) return
+  loadTimelineData(currentAppId.value)
 }
 
 const changeStatus = async (status) => {

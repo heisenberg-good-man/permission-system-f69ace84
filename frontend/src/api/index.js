@@ -9,11 +9,20 @@ const request = axios.create({
 request.interceptors.request.use(
   config => {
     const role = localStorage.getItem('role') || 'candidate'
-    const candidateName = localStorage.getItem('candidateName') || '李四'
+    const candidateName = localStorage.getItem('candidateName') || ''
+    const recruiterName = localStorage.getItem('recruiterName') || '李经理'
     if (!config.params) config.params = {}
     config.params.role = role
     if (role === 'candidate') {
       config.params.candidate_name = candidateName
+    }
+    config.headers = config.headers || {}
+    config.headers['x-role'] = role
+    if (candidateName) {
+      config.headers['x-candidate-name'] = candidateName
+    }
+    if (recruiterName && (role === 'recruiter' || role === 'hiring_manager')) {
+      config.headers['x-recruiter-name'] = recruiterName
     }
     return config
   },

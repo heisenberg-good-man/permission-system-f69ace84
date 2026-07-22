@@ -5,7 +5,13 @@
       <span>加载中...</span>
     </div>
     <div v-else-if="errorMsg" class="timeline-error">
-      <el-alert :title="errorMsg" type="error" :closable="false" show-icon />
+      <div class="error-content">
+        <el-alert :title="errorMsg" type="error" :closable="false" show-icon />
+        <el-button v-if="retryText" type="primary" plain size="small" style="margin-top: 12px" @click="$emit('retry')">
+          <el-icon><Refresh /></el-icon>
+          {{ retryText }}
+        </el-button>
+      </div>
     </div>
     <div v-else-if="items.length === 0" class="timeline-empty">
       <el-empty description="暂无记录" :image-size="60" />
@@ -39,7 +45,7 @@
 
 <script setup>
 import { ref, computed, watch, nextTick, inject } from 'vue'
-import { Loading, ChatDotRound, Bell, Calendar, Present, User } from '@element-plus/icons-vue'
+import { Loading, ChatDotRound, Bell, Calendar, Present, User, Refresh } from '@element-plus/icons-vue'
 
 const props = defineProps({
   messages: {
@@ -65,8 +71,14 @@ const props = defineProps({
   autoScroll: {
     type: Boolean,
     default: false
+  },
+  retryText: {
+    type: String,
+    default: ''
   }
 })
+
+defineEmits(['retry'])
 
 const STATUS_TEXT = inject('STATUS_TEXT', {})
 const OFFER_STATUS_TEXT = inject('OFFER_STATUS_TEXT', {})
