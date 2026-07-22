@@ -59,8 +59,8 @@ def require_role(allowed_roles):
     if role not in allowed_roles:
         role_names = {'candidate': '应聘方', 'recruiter': '招聘方', 'hiring_manager': '招聘负责人'}
         allowed_names = [role_names.get(r, r) for r in allowed_roles]
-        return False, f'当前角色无权执行此操作，仅{"、".join(allowed_names)}可操作'
-    return True, None
+        return False, f'当前角色无权执行此操作，仅{"、".join(allowed_names)}可操作', 4030, None
+    return True, None, 0, None
 
 
 def require_candidate_identity():
@@ -68,8 +68,8 @@ def require_candidate_identity():
     if role == 'candidate':
         name = get_current_candidate_name()
         if not name:
-            return False, '请先登录后再操作，缺少候选人身份信息', 4010
-    return True, None, 0
+            return False, '请先登录后再操作，缺少候选人身份信息', 4010, None
+    return True, None, 0, None
 
 
 def check_job_access(job_id):
@@ -102,12 +102,15 @@ def check_app_access(app_id, action='view'):
             return False, '请先登录后再操作，缺少候选人身份信息', 4010, None
         if app_data['candidate_name'] != name:
             return False, '无权查看或操作他人的投递记录', 4031, None
-    elif role == 'recruiter' and action == 'manage':
+    elif role == 'recruiter':
         job = db.get_job(app_data['job_id'])
         if job:
             hr_id = get_current_recruiter_id()
             if job.get('hr_id') and job['hr_id'] != hr_id:
-                return False, '无权管理其他招聘方负责职位下的候选人', 4036, None
+                if action == 'manage':
+                    return False, '无权管理其他招聘方负责职位下的候选人', 4036, None
+                else:
+                    return False, '无权查看其他招聘方负责职位下的候选人', 4035, None
     return True, None, 0, app_data
 
 
@@ -164,12 +167,15 @@ def check_offer_access(offer_id, action='view'):
             return False, '请先登录后再操作，缺少候选人身份信息', 4010, None
         if offer['candidate_name'] != name:
             return False, '无权操作他人的 Offer', 4031, None
-    elif role == 'recruiter' and action == 'manage':
+    elif role == 'recruiter':
         job = db.get_job(offer['job_id'])
         if job:
             hr_id = get_current_recruiter_id()
             if job.get('hr_id') and job['hr_id'] != hr_id:
-                return False, '无权管理其他招聘方负责职位下的 Offer', 4036, None
+                if action == 'manage':
+                    return False, '无权管理其他招聘方负责职位下的 Offer', 4036, None
+                else:
+                    return False, '无权查看其他招聘方负责职位下的 Offer', 4035, None
     app_data = db.get_application(offer['application_id'])
     if not app_data:
         return False, 'Offer 对应投递记录不存在', 4041, None
@@ -223,9 +229,9 @@ def get_job(job_id):
 
 @app.route('/api/jobs', methods=['POST'])
 def create_job():
-    allowed, err_msg = require_role(('recruiter',))
-    if not allowed:
-        return fail(err_msg, 4030)
+    ok, err, code, _ = require_role(('recruiter',))
+    if not ok:
+        return fail(err, code)
     data = request.get_json() or {}
     if not data.get('title'):
         return fail('职位名称不能为空', 4001)
@@ -239,9 +245,9 @@ def create_job():
 
 @app.route('/api/jobs/<int:job_id>', methods=['PUT'])
 def update_job(job_id):
-    allowed, err_msg = require_role(('recruiter',))
-    if not allowed:
-        return fail(err_msg, 4030)
+    ok, err, code, _ = require_role(('recruiter',))
+    if not ok:
+        return fail(err, code)
     ok, err, code, job = check_job_manage_access(job_id)
     if not ok:
         return fail(err, code)
@@ -254,9 +260,9 @@ def update_job(job_id):
 
 @app.route('/api/jobs/<int:job_id>', methods=['DELETE'])
 def delete_job(job_id):
-    allowed, err_msg = require_role(('recruiter',))
-    if not allowed:
-        return fail(err_msg, 4030)
+    ok, err, code, _ = require_role(('recruiter',))
+    if not ok:
+        return fail(err, code)
     ok, err, code, job = check_job_manage_access(job_id)
     if not ok:
         return fail(err, code)
@@ -268,9 +274,9 @@ def delete_job(job_id):
 
 @app.route('/api/jobs/<int:job_id>/applications', methods=['GET'])
 def list_job_applications(job_id):
-    allowed, err_msg = require_role(('recruiter', 'hiring_manager'))
-    if not allowed:
-        return fail(err_msg, 4030)
+    ok, err, code, _ = require_role(('recruiter', 'hiring_manager'))
+    if not ok:
+        return fail(err, code)
     ok, err, code, job = check_job_access(job_id)
     if not ok:
         return fail(err, code)
@@ -310,9 +316,9 @@ def get_application(app_id):
 
 @app.route('/api/jobs/<int:job_id>/apply', methods=['POST'])
 def apply_job(job_id):
-    allowed, err_msg = require_role(('candidate',))
-    if not allowed:
-        return fail(err_msg, 4030)
+    ok, err, code, _ = require_role(('candidate',))
+    if not ok:
+        return fail(err, code)
     ok_id, err_id, code_id, _ = require_candidate_identity()
     if not ok_id:
         return fail(err_id, code_id)
@@ -330,9 +336,9 @@ def apply_job(job_id):
 
 @app.route('/api/applications/<int:app_id>/status', methods=['PUT'])
 def update_application_status(app_id):
-    allowed, err_msg = require_role(('recruiter',))
-    if not allowed:
-        return fail(err_msg, 4030)
+    ok, err, code, _ = require_role(('recruiter',))
+    if not ok:
+        return fail(err, code)
     ok, result, code, app_data = check_app_access(app_id, 'manage')
     if not ok:
         return fail(result, code)
@@ -369,7 +375,7 @@ def send_message(app_id):
     if role == 'hiring_manager':
         return fail('招聘负责人无权发送沟通消息', 4030)
     if role == 'candidate':
-        ok_id, err_id, code_id = require_candidate_identity()
+        ok_id, err_id, code_id, _ = require_candidate_identity()
         if not ok_id:
             return fail(err_id, code_id)
     data = request.get_json() or {}
@@ -429,9 +435,9 @@ def get_interview(interview_id):
 
 @app.route('/api/applications/<int:app_id>/interviews', methods=['POST'])
 def create_interview(app_id):
-    allowed, err_msg = require_role(('recruiter',))
-    if not allowed:
-        return fail(err_msg, 4030)
+    ok, err, code, _ = require_role(('recruiter',))
+    if not ok:
+        return fail(err, code)
     ok, result, code, app_data = check_app_access(app_id, 'manage')
     if not ok:
         return fail(result, code)
@@ -444,9 +450,9 @@ def create_interview(app_id):
 
 @app.route('/api/interviews/<int:interview_id>', methods=['PUT'])
 def update_interview(interview_id):
-    allowed, err_msg = require_role(('recruiter',))
-    if not allowed:
-        return fail(err_msg, 4030)
+    ok, err, code, _ = require_role(('recruiter',))
+    if not ok:
+        return fail(err, code)
     interview = db.get_interview(interview_id)
     if not interview:
         return fail('面试记录不存在', 4042)
@@ -462,9 +468,9 @@ def update_interview(interview_id):
 
 @app.route('/api/interviews/<int:interview_id>/cancel', methods=['POST'])
 def cancel_interview(interview_id):
-    allowed, err_msg = require_role(('recruiter',))
-    if not allowed:
-        return fail(err_msg, 4030)
+    ok, err, code, _ = require_role(('recruiter',))
+    if not ok:
+        return fail(err, code)
     interview = db.get_interview(interview_id)
     if not interview:
         return fail('面试记录不存在', 4042)
@@ -486,9 +492,9 @@ def get_interview_meta():
 
 @app.route('/api/interviews/<int:interview_id>/feedback', methods=['POST'])
 def submit_interview_feedback(interview_id):
-    allowed, err_msg = require_role(('recruiter',))
-    if not allowed:
-        return fail(err_msg, 4030)
+    ok, err, code, _ = require_role(('recruiter',))
+    if not ok:
+        return fail(err, code)
     interview = db.get_interview(interview_id)
     if not interview:
         return fail('面试记录不存在', 4042)
@@ -536,9 +542,9 @@ def get_offer(offer_id):
 
 @app.route('/api/applications/<int:app_id>/offers', methods=['POST'])
 def create_offer(app_id):
-    allowed, err_msg = require_role(('recruiter',))
-    if not allowed:
-        return fail(err_msg, 4030)
+    ok, err, code, _ = require_role(('recruiter',))
+    if not ok:
+        return fail(err, code)
     ok, result, code, app_data = check_app_access(app_id, 'manage')
     if not ok:
         return fail(result, code)
@@ -551,9 +557,9 @@ def create_offer(app_id):
 
 @app.route('/api/offers/<int:offer_id>', methods=['PUT'])
 def update_offer(offer_id):
-    allowed, err_msg = require_role(('recruiter',))
-    if not allowed:
-        return fail(err_msg, 4030)
+    ok, err, code, _ = require_role(('recruiter',))
+    if not ok:
+        return fail(err, code)
     ok, err_msg2, code, offer = check_offer_access(offer_id, 'manage')
     if not ok:
         return fail(err_msg2, code)
@@ -566,9 +572,9 @@ def update_offer(offer_id):
 
 @app.route('/api/offers/<int:offer_id>/send', methods=['POST'])
 def send_offer(offer_id):
-    allowed, err_msg = require_role(('recruiter',))
-    if not allowed:
-        return fail(err_msg, 4030)
+    ok, err, code, _ = require_role(('recruiter',))
+    if not ok:
+        return fail(err, code)
     ok, err_msg2, code, offer = check_offer_access(offer_id, 'manage')
     if not ok:
         return fail(err_msg2, code)
@@ -580,9 +586,9 @@ def send_offer(offer_id):
 
 @app.route('/api/offers/<int:offer_id>/accept', methods=['POST'])
 def accept_offer(offer_id):
-    allowed, err_msg = require_role(('candidate',))
-    if not allowed:
-        return fail(err_msg, 4030)
+    ok, err, code, _ = require_role(('candidate',))
+    if not ok:
+        return fail(err, code)
     ok, err_msg2, code, offer = check_offer_access(offer_id, 'view')
     if not ok:
         return fail(err_msg2, code)
@@ -594,10 +600,10 @@ def accept_offer(offer_id):
 
 @app.route('/api/offers/<int:offer_id>/reject', methods=['POST'])
 def reject_offer(offer_id):
-    allowed, err_msg = require_role(('candidate',))
-    if not allowed:
-        return fail(err_msg, 4030)
-    ok_id, err_id, code_id = require_candidate_identity()
+    ok, err, code, _ = require_role(('candidate',))
+    if not ok:
+        return fail(err, code)
+    ok_id, err_id, code_id, _ = require_candidate_identity()
     if not ok_id:
         return fail(err_id, code_id)
     ok, err_msg2, code, offer = check_offer_access(offer_id, 'view')
@@ -615,9 +621,9 @@ def reject_offer(offer_id):
 
 @app.route('/api/offers/<int:offer_id>/withdraw', methods=['POST'])
 def withdraw_offer(offer_id):
-    allowed, err_msg = require_role(('recruiter',))
-    if not allowed:
-        return fail(err_msg, 4030)
+    ok, err, code, _ = require_role(('recruiter',))
+    if not ok:
+        return fail(err, code)
     ok, err_msg2, code, offer = check_offer_access(offer_id, 'manage')
     if not ok:
         return fail(err_msg2, code)

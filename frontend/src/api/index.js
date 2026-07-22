@@ -133,7 +133,7 @@ export const api = {
 
   getApplications: (params) => request.get('/applications', { params }),
   getApplication: (id) => request.get(`/applications/${id}`),
-  applyJob: (jobId, data) => request.post(`/jobs/${jobId}/apply`, data),
+  applyJob: (jobId, data, config = {}) => request.post(`/jobs/${jobId}/apply`, data, config),
   updateApplicationStatus: (id, status) => request.put(`/applications/${id}/status`, { status }),
 
   getMessages: (appId) => request.get(`/applications/${appId}/messages`),

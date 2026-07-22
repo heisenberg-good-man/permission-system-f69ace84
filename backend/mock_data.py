@@ -772,6 +772,9 @@ class MockDB:
             return None, '该职位已关闭招聘，无法投递'
         if not data.get('candidate_name'):
             return None, '候选人姓名不能为空'
+        existing = [a for a in self.applications if a['job_id'] == job_id and a['candidate_name'] == data['candidate_name']]
+        if existing:
+            return None, '您已投递过该职位，请勿重复投递'
         app = {
             'id': self.next_application_id,
             'job_id': job_id,

@@ -166,6 +166,14 @@
                   placeholder="请输入简历内容或自我评价"
                 />
               </el-form-item>
+              <div v-if="applyError" class="apply-error">
+                <el-icon><Warning /></el-icon>
+                <span>{{ applyError }}</span>
+              </div>
+              <div v-if="applySuccess" class="apply-success">
+                <el-icon><CircleCheck /></el-icon>
+                <span>投递成功！我们会尽快与您联系</span>
+              </div>
               <el-button type="primary" style="width: 100%" @click="submitApply" :loading="submitting">
                 立即投递
               </el-button>
@@ -200,15 +208,16 @@
 </template>
 
 <script setup>
-import { ref, computed, inject, onMounted } from 'vue'
+import { ref, computed, inject, onMounted, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
-import { Loading, ArrowDown } from '@element-plus/icons-vue'
+import { Loading, ArrowDown, Warning, CircleCheck } from '@element-plus/icons-vue'
 import { ElMessage } from 'element-plus'
 import { api } from '../api'
 
 const route = useRoute()
 const router = useRouter()
 const role = inject('role')
+const currentCandidateName = inject('currentCandidateName')
 const refreshStats = inject('refreshStats')
 const refreshDashboardStats = inject('refreshDashboardStats')
 const STATUS_TEXT = inject('STATUS_TEXT')
@@ -217,6 +226,8 @@ const STATUS_TYPE = inject('STATUS_TYPE')
 const job = ref(null)
 const loading = ref(false)
 const submitting = ref(false)
+const applyError = ref('')
+const applySuccess = ref(false)
 const applications = ref([])
 const appStatusFilter = ref('')
 
@@ -229,12 +240,18 @@ const STATUS_FLOW = {
 }
 
 const form = ref({
-  candidate_name: '',
+  candidate_name: currentCandidateName?.value || '',
   candidate_phone: '',
   candidate_email: '',
   education: '',
   experience: '',
   resume: ''
+})
+
+watch(currentCandidateName, (val) => {
+  if (val && !form.value.candidate_name) {
+    form.value.candidate_name = val
+  }
 })
 
 const filteredApps = computed(() => {
@@ -272,15 +289,17 @@ const getNextStatuses = (current) => {
 
 const submitApply = async () => {
   if (!form.value.candidate_name) {
-    ElMessage.warning('请输入姓名')
+    applyError.value = '请输入姓名'
     return
   }
+  applyError.value = ''
+  applySuccess.value = false
   submitting.value = true
   try {
-    await api.applyJob(route.params.id, form.value)
-    ElMessage.success('投递成功！')
+    await api.applyJob(route.params.id, form.value, { silentError: true })
+    applySuccess.value = true
     form.value = {
-      candidate_name: '',
+      candidate_name: currentCandidateName?.value || '',
       candidate_phone: '',
       candidate_email: '',
       education: '',
@@ -290,7 +309,7 @@ const submitApply = async () => {
     refreshStats()
     if (refreshDashboardStats) refreshDashboardStats()
   } catch (e) {
-    ElMessage.error(e.message || '投递失败')
+    applyError.value = e.message || '投递失败，请稍后重试'
   } finally {
     submitting.value = false
   }
@@ -461,6 +480,44 @@ onMounted(() => {
 .apply-card {
   position: sticky;
   top: 20px;
+}
+
+.apply-error {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  padding: 10px 12px;
+  margin-bottom: 12px;
+  background: #fef0f0;
+  border: 1px solid #fde2e2;
+  border-radius: 4px;
+  color: #f56c6c;
+  font-size: 13px;
+  line-height: 1.5;
+}
+
+.apply-error .el-icon {
+  flex-shrink: 0;
+  margin-top: 1px;
+}
+
+.apply-success {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  padding: 10px 12px;
+  margin-bottom: 12px;
+  background: #f0f9eb;
+  border: 1px solid #e1f3d8;
+  border-radius: 4px;
+  color: #67c23a;
+  font-size: 13px;
+  line-height: 1.5;
+}
+
+.apply-success .el-icon {
+  flex-shrink: 0;
+  margin-top: 1px;
 }
 
 .action-buttons {
