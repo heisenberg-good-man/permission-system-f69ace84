@@ -812,42 +812,67 @@ const sendOffer = async (offer) => {
       '发送 Offer',
       { type: 'warning' }
     )
-    await api.sendOffer(offer.id)
+  } catch (e) {
+    return
+  }
+  const originalOffer = { ...offer }
+  try {
+    const result = await api.sendOffer(offer.id)
     ElMessage.success('Offer 已发送')
     offers.value = await api.getOffers({ application_id: selectedId.value })
     fetchData()
     refreshStats()
+    if (refreshDashboardStats) refreshDashboardStats()
     try {
       messages.value = await api.getMessages(selectedId.value)
     } catch (e) {}
   } catch (e) {
-    if (e !== 'cancel') ElMessage.error(e.message || '发送失败')
+    const idx = offers.value.findIndex(o => o.id === offer.id)
+    if (idx !== -1) {
+      offers.value[idx] = originalOffer
+    }
   }
 }
 
 const withdrawOffer = async (offer) => {
+  let reason = ''
   try {
-    const { value: reason } = await ElMessageBox.prompt(
+    const { value } = await ElMessageBox.prompt(
       '请输入撤回原因',
       '撤回 Offer',
       {
         confirmButtonText: '确认撤回',
         cancelButtonText: '取消',
         inputType: 'textarea',
-        inputPlaceholder: '请输入撤回原因（可选）',
-        inputValidator: () => true
+        inputPlaceholder: '请输入撤回原因',
+        inputValidator: (val) => {
+          if (!val || !val.trim()) {
+            return '请输入撤回原因'
+          }
+          return true
+        }
       }
     )
-    await api.withdrawOffer(offer.id, reason || '')
+    reason = value
+  } catch (e) {
+    return
+  }
+  const originalOffer = { ...offer }
+  try {
+    const result = await api.withdrawOffer(offer.id, reason)
     ElMessage.success('Offer 已撤回')
     offers.value = await api.getOffers({ application_id: selectedId.value })
     fetchData()
     refreshStats()
+    if (refreshDashboardStats) refreshDashboardStats()
     try {
       messages.value = await api.getMessages(selectedId.value)
     } catch (e) {}
   } catch (e) {
-    if (e !== 'cancel') ElMessage.error(e.message || '撤回失败')
+    const idx = offers.value.findIndex(o => o.id === offer.id)
+    if (idx !== -1) {
+      offers.value[idx] = originalOffer
+    }
   }
 }
 

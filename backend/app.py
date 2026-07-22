@@ -27,12 +27,27 @@ def get_current_candidate_name():
     return request.args.get('candidate_name', request.headers.get('x-candidate-name', ''))
 
 
-def check_offer_ownership(offer):
+def check_offer_ownership(offer, action='operate'):
     role = get_current_role()
     if role == 'candidate':
         candidate_name = get_current_candidate_name()
+        if not candidate_name:
+            return False, '请先登录后再操作'
         if offer['candidate_name'] != candidate_name:
             return False, '无权操作他人的 Offer'
+    return True, None
+
+
+def check_recruiter_offer_access(offer):
+    role = get_current_role()
+    if role != 'recruiter':
+        return True, None
+    app = db.get_application(offer['application_id'])
+    if not app:
+        return False, 'Offer 对应投递记录不存在'
+    job = db.get_job(offer['job_id'])
+    if not job:
+        return False, 'Offer 对应职位不存在'
     return True, None
 
 
@@ -263,6 +278,11 @@ def list_offers():
         start_date=start_date,
         end_date=end_date
     )
+    role = get_current_role()
+    if role == 'candidate':
+        candidate_name = get_current_candidate_name()
+        if candidate_name:
+            offers = [o for o in offers if o['candidate_name'] == candidate_name]
     return success(offers)
 
 
@@ -271,7 +291,12 @@ def get_offer(offer_id):
     offer = db.get_offer(offer_id)
     if not offer:
         return fail('Offer 不存在', 4043)
+    allowed, err_msg = check_offer_ownership(offer, 'view')
+    if not allowed:
+        return fail(err_msg, 4031)
     app = db.get_application(offer['application_id'])
+    if not app:
+        return fail('Offer 对应投递记录不存在', 4041)
     job = db.get_job(offer['job_id'])
     return success({
         'offer': offer,
@@ -311,9 +336,14 @@ def accept_offer(offer_id):
     offer = db.get_offer(offer_id)
     if not offer:
         return fail('Offer 不存在', 4043)
-    allowed, err_msg = check_offer_ownership(offer)
+    allowed, err_msg = check_offer_ownership(offer, 'accept')
     if not allowed:
         return fail(err_msg, 4031)
+    app = db.get_application(offer['application_id'])
+    if not app:
+        return fail('Offer 对应投递记录不存在', 4041)
+    if app['candidate_name'] != offer['candidate_name'] or app['job_id'] != offer['job_id']:
+        return fail('Offer 与投递记录不匹配', 4033)
     offer, err = db.accept_offer(offer_id)
     if err:
         return fail(err, 4013)
@@ -325,11 +355,18 @@ def reject_offer(offer_id):
     offer = db.get_offer(offer_id)
     if not offer:
         return fail('Offer 不存在', 4043)
-    allowed, err_msg = check_offer_ownership(offer)
+    allowed, err_msg = check_offer_ownership(offer, 'reject')
     if not allowed:
         return fail(err_msg, 4031)
+    app = db.get_application(offer['application_id'])
+    if not app:
+        return fail('Offer 对应投递记录不存在', 4041)
+    if app['candidate_name'] != offer['candidate_name'] or app['job_id'] != offer['job_id']:
+        return fail('Offer 与投递记录不匹配', 4033)
     data = request.get_json() or {}
     reason = data.get('reason', '')
+    if not reason or not reason.strip():
+        return fail('请填写拒绝原因', 4014)
     offer, err = db.reject_offer(offer_id, reason)
     if err:
         return fail(err, 4014)
@@ -344,8 +381,13 @@ def withdraw_offer(offer_id):
     role = get_current_role()
     if role == 'candidate':
         return fail('应聘方无权撤回 Offer', 4032)
+    allowed, err_msg = check_recruiter_offer_access(offer)
+    if not allowed:
+        return fail(err_msg, 4034)
     data = request.get_json() or {}
     reason = data.get('reason', '')
+    if not reason or not reason.strip():
+        return fail('请填写撤回原因', 4015)
     offer, err = db.withdraw_offer(offer_id, reason)
     if err:
         return fail(err, 4015)

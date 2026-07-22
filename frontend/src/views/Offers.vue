@@ -168,6 +168,10 @@
 
     <el-drawer v-model="detailVisible" title="Offer 详情" size="500px">
       <div v-if="currentOffer" class="offer-detail">
+        <el-alert v-if="detailError" type="error" :closable="false" style="margin-bottom: 20px" show-icon>
+          <template #title>操作失败</template>
+          {{ detailError }}
+        </el-alert>
         <div class="detail-section">
           <h4>基本信息</h4>
           <el-descriptions :column="1" border>
@@ -215,13 +219,13 @@
           </el-descriptions>
         </div>
         <div class="detail-actions">
-          <el-button v-if="currentOffer.status === 'draft'" type="primary" @click="openEditDialog(currentOffer)">
+          <el-button v-if="currentOffer.status === 'draft'" type="primary" @click="openEditDialog(currentOffer)" :loading="actionLoading">
             编辑
           </el-button>
-          <el-button v-if="currentOffer.status === 'draft'" type="success" @click="handleSend(currentOffer)">
+          <el-button v-if="currentOffer.status === 'draft'" type="success" @click="handleSend(currentOffer)" :loading="actionLoading">
             发送
           </el-button>
-          <el-button v-if="currentOffer.status === 'draft' || currentOffer.status === 'sent'" type="danger" @click="handleWithdraw(currentOffer)">
+          <el-button v-if="currentOffer.status === 'draft' || currentOffer.status === 'sent'" type="danger" @click="handleWithdraw(currentOffer)" :loading="actionLoading">
             撤回
           </el-button>
           <el-alert
@@ -284,6 +288,8 @@ const detailVisible = ref(false)
 const isEdit = ref(false)
 const currentOffer = ref(null)
 const formRef = ref(null)
+const detailError = ref('')
+const actionLoading = ref(false)
 
 const form = reactive({
   application_id: null,
@@ -477,11 +483,13 @@ const openEditDialog = (row) => {
 }
 
 const viewDetail = async (row) => {
+  detailError.value = ''
   try {
     const res = await api.getOffer(row.id)
     currentOffer.value = res.offer
   } catch (e) {
     currentOffer.value = row
+    detailError.value = e.message || '加载 Offer 详情失败'
   }
   detailVisible.value = true
 }
@@ -529,25 +537,44 @@ const handleSave = async () => {
 }
 
 const handleSend = async (row) => {
+  if (actionLoading.value) return
+  detailError.value = ''
   try {
     await ElMessageBox.confirm(
       `确认将 Offer 发送给 ${row.candidate_name}？发送后候选人将收到通知。`,
       '发送 Offer',
       { type: 'warning' }
     )
-    await api.sendOffer(row.id)
+  } catch (e) {
+    return
+  }
+  actionLoading.value = true
+  const originalOffer = { ...row }
+  try {
+    const result = await api.sendOffer(row.id)
     ElMessage.success('Offer 已发送')
+    if (currentOffer.value && currentOffer.value.id === row.id) {
+      currentOffer.value = result
+    }
     fetchList()
     refreshStats()
     refreshDashboardStats()
   } catch (e) {
-    if (e !== 'cancel') ElMessage.error(e.message || '发送失败')
+    detailError.value = e.message || '发送失败'
+    if (currentOffer.value && currentOffer.value.id === row.id) {
+      currentOffer.value = { ...originalOffer }
+    }
+  } finally {
+    actionLoading.value = false
   }
 }
 
 const handleWithdraw = async (row) => {
+  if (actionLoading.value) return
+  detailError.value = ''
+  let reason = ''
   try {
-    const { value: reason } = await ElMessageBox.prompt(
+    const { value } = await ElMessageBox.prompt(
       '请输入撤回原因',
       '撤回 Offer',
       {
@@ -563,13 +590,28 @@ const handleWithdraw = async (row) => {
         }
       }
     )
-    await api.withdrawOffer(row.id, reason)
+    reason = value
+  } catch (e) {
+    return
+  }
+  actionLoading.value = true
+  const originalOffer = { ...row }
+  try {
+    const result = await api.withdrawOffer(row.id, reason)
     ElMessage.success('Offer 已撤回')
+    if (currentOffer.value && currentOffer.value.id === row.id) {
+      currentOffer.value = result
+    }
     fetchList()
     refreshStats()
     refreshDashboardStats()
   } catch (e) {
-    if (e !== 'cancel') ElMessage.error(e.message || '撤回失败')
+    detailError.value = e.message || '撤回失败'
+    if (currentOffer.value && currentOffer.value.id === row.id) {
+      currentOffer.value = { ...originalOffer }
+    }
+  } finally {
+    actionLoading.value = false
   }
 }
 

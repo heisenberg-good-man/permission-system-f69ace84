@@ -56,6 +56,10 @@
 
     <el-drawer v-model="detailVisible" title="Offer 详情" size="500px">
       <div v-if="currentOffer" class="offer-detail">
+        <el-alert v-if="actionError" type="error" :closable="false" style="margin-bottom: 20px" show-icon>
+          <template #title>操作失败</template>
+          {{ actionError }}
+        </el-alert>
         <el-alert v-if="currentOffer.status === 'sent'" type="primary" :closable="false" style="margin-bottom: 20px">
           您有一份待处理的 Offer，请及时回复。如有疑问请联系 HR。
         </el-alert>
@@ -121,10 +125,10 @@
           </el-descriptions>
         </div>
         <div class="detail-actions" v-if="currentOffer.status === 'sent'">
-          <el-button type="success" @click="handleAccept(currentOffer)" size="large">
+          <el-button type="success" @click="handleAccept(currentOffer)" size="large" :loading="actionLoading">
             接受 Offer
           </el-button>
-          <el-button type="danger" @click="handleReject(currentOffer)" size="large">
+          <el-button type="danger" @click="handleReject(currentOffer)" size="large" :loading="actionLoading">
             拒绝 Offer
           </el-button>
         </div>
@@ -150,6 +154,8 @@ const filters = reactive({
 const detailVisible = ref(false)
 const currentOffer = ref(null)
 const currentCandidateName = inject('currentCandidateName')
+const actionError = ref('')
+const actionLoading = ref(false)
 
 const fetchList = async () => {
   loading.value = true
@@ -168,37 +174,58 @@ const resetFilters = () => {
 }
 
 const viewDetail = async (row) => {
+  actionError.value = ''
   try {
     const res = await api.getOffer(row.id)
     currentOffer.value = res.offer
   } catch (e) {
     currentOffer.value = row
+    actionError.value = e.message || '加载 Offer 详情失败'
   }
   detailVisible.value = true
 }
 
 const handleAccept = async (row) => {
+  if (actionLoading.value) return
+  actionError.value = ''
   try {
     await ElMessageBox.confirm(
       '确认接受该 Offer？接受后请按时入职，如有特殊情况请联系 HR。',
       '接受 Offer',
       { type: 'success' }
     )
-    await api.acceptOffer(row.id)
+  } catch (e) {
+    return
+  }
+  actionLoading.value = true
+  const originalOffer = { ...row }
+  try {
+    const result = await api.acceptOffer(row.id)
     ElMessage.success('已接受 Offer')
+    if (currentOffer.value && currentOffer.value.id === row.id) {
+      currentOffer.value = result
+    }
     detailVisible.value = false
     fetchList()
     refreshStats()
     refreshDashboardStats()
     refreshAll()
   } catch (e) {
-    if (e !== 'cancel') ElMessage.error(e.message || '操作失败')
+    actionError.value = e.message || '接受 Offer 失败'
+    if (currentOffer.value && currentOffer.value.id === row.id) {
+      currentOffer.value = { ...originalOffer }
+    }
+  } finally {
+    actionLoading.value = false
   }
 }
 
 const handleReject = async (row) => {
+  if (actionLoading.value) return
+  actionError.value = ''
+  let reason = ''
   try {
-    const { value: reason } = await ElMessageBox.prompt(
+    const { value } = await ElMessageBox.prompt(
       '请输入拒绝原因',
       '拒绝 Offer',
       {
@@ -214,15 +241,30 @@ const handleReject = async (row) => {
         }
       }
     )
-    await api.rejectOffer(row.id, reason)
+    reason = value
+  } catch (e) {
+    return
+  }
+  actionLoading.value = true
+  const originalOffer = { ...row }
+  try {
+    const result = await api.rejectOffer(row.id, reason)
     ElMessage.success('已拒绝 Offer')
+    if (currentOffer.value && currentOffer.value.id === row.id) {
+      currentOffer.value = result
+    }
     detailVisible.value = false
     fetchList()
     refreshStats()
     refreshDashboardStats()
     refreshAll()
   } catch (e) {
-    if (e !== 'cancel') ElMessage.error(e.message || '操作失败')
+    actionError.value = e.message || '拒绝 Offer 失败'
+    if (currentOffer.value && currentOffer.value.id === row.id) {
+      currentOffer.value = { ...originalOffer }
+    }
+  } finally {
+    actionLoading.value = false
   }
 }
 
